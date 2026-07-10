@@ -1,6 +1,7 @@
 const express = require('express');
 const cors = require('cors');
 const path = require('path');
+const fs = require('fs');
 const rateLimit = require('express-rate-limit');
 const { createClient } = require('@supabase/supabase-js');
 
@@ -39,6 +40,17 @@ console.log('SUPABASE_URL:', process.env.SUPABASE_URL ? '✅ Set' : '❌ Missing
 console.log('SUPABASE_SERVICE_KEY:', process.env.SUPABASE_SERVICE_KEY ? '✅ Set' : '❌ Missing');
 console.log('BOT_TOKEN:', process.env.BOT_TOKEN ? '✅ Set' : '❌ Missing');
 console.log('ADMIN_IDS:', process.env.ADMIN_IDS || '❌ Missing');
+
+console.log('📁 Checking required files...');
+const requiredFiles = ['admin.html', 'css/admin.css', 'js/admin.js'];
+for (const file of requiredFiles) {
+    const filePath = path.join(__dirname, file);
+    if (fs.existsSync(filePath)) {
+        console.log(`✅ ${file} found`);
+    } else {
+        console.log(`❌ ${file} NOT found`);
+    }
+}
 
 const supabase = createClient(
     process.env.SUPABASE_URL,
@@ -1213,12 +1225,10 @@ app.get('/api/health', (req, res) => {
     res.json({ status: 'ok', timestamp: Date.now() });
 });
 
-// Health check for Railway
 app.get('/', (req, res) => {
-    res.send('Admin Panel is running!');
+    res.sendFile(path.join(__dirname, 'admin.html'));
 });
 
-// Serve admin.html for all non-API routes
 app.get('*', (req, res) => {
     if (!req.path.startsWith('/api')) {
         res.sendFile(path.join(__dirname, 'admin.html'));
