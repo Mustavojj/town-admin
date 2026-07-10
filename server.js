@@ -1199,7 +1199,7 @@ app.get('/api/health', (req, res) => {
 
 app.get('*', (req, res) => {
     if (!req.path.startsWith('/api')) {
-        res.sendFile(path.join(__dirname, 'index.html'));
+        res.sendFile(path.join(__dirname, 'admin.html'));
     }
 });
 
