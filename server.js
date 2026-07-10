@@ -4,6 +4,15 @@ const path = require('path');
 const rateLimit = require('express-rate-limit');
 const { createClient } = require('@supabase/supabase-js');
 
+process.on('uncaughtException', (err) => {
+    console.error('❌ Uncaught Exception:', err.message);
+    console.error(err.stack);
+});
+
+process.on('unhandledRejection', (reason, promise) => {
+    console.error('❌ Unhandled Rejection:', reason);
+});
+
 const app = express();
 
 app.set('trust proxy', 1);
@@ -16,7 +25,7 @@ const limiter = rateLimit({
 
 app.use(cors({
     origin: [
-        'https://town-admin-production.up.railway.app/',
+        'https://town-admin-production.up.railway.app',
         'https://t.me',
         'https://web.telegram.org'
     ]
@@ -24,6 +33,12 @@ app.use(cors({
 app.use(express.json());
 app.use(express.static(path.join(__dirname, '.')));
 app.use('/api/', limiter);
+
+console.log('🔍 Checking environment variables...');
+console.log('SUPABASE_URL:', process.env.SUPABASE_URL ? '✅ Set' : '❌ Missing');
+console.log('SUPABASE_SERVICE_KEY:', process.env.SUPABASE_SERVICE_KEY ? '✅ Set' : '❌ Missing');
+console.log('BOT_TOKEN:', process.env.BOT_TOKEN ? '✅ Set' : '❌ Missing');
+console.log('ADMIN_IDS:', process.env.ADMIN_IDS || '❌ Missing');
 
 const supabase = createClient(
     process.env.SUPABASE_URL,
@@ -66,12 +81,17 @@ function validateNumber(value, min = 0, max = Infinity) {
 async function isAdmin(userId) {
     if (!userId) return false;
     if (ADMIN_IDS.includes(userId)) return true;
-    const { data, error } = await supabase
-        .from('admins')
-        .select('user_id')
-        .eq('user_id', userId)
-        .single();
-    return !error && data !== null;
+    try {
+        const { data, error } = await supabase
+            .from('admins')
+            .select('user_id')
+            .eq('user_id', userId)
+            .single();
+        return !error && data !== null;
+    } catch (error) {
+        console.error('isAdmin error:', error.message);
+        return false;
+    }
 }
 
 async function logAdminAction(adminId, action, details = {}) {
@@ -93,6 +113,10 @@ async function logAdminAction(adminId, action, details = {}) {
 async function sendNotification(userId, title, message) {
     try {
         const BOT_TOKEN = process.env.BOT_TOKEN;
+        if (!BOT_TOKEN) {
+            console.warn('BOT_TOKEN not set, skipping notification');
+            return;
+        }
         await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -123,7 +147,6 @@ app.use(async (req, res, next) => {
     next();
 });
 
-// ==================== ADMIN MIDDLEWARE ====================
 async function adminAuth(req, res, next) {
     const adminId = req.body.adminId || req.query.adminId;
     if (!adminId || !(await isAdmin(adminId))) {
@@ -133,7 +156,6 @@ async function adminAuth(req, res, next) {
     next();
 }
 
-// ==================== USER ENDPOINTS ====================
 app.post('/api/user/get', async (req, res) => {
     try {
         const { userId } = req.body;
@@ -195,7 +217,6 @@ app.post('/api/user/update', async (req, res) => {
     }
 });
 
-// ==================== TASK ENDPOINTS ====================
 app.post('/api/tasks/active', async (req, res) => {
     try {
         const { data, error } = await supabase
@@ -327,7 +348,6 @@ app.post('/api/tasks/completed', async (req, res) => {
     }
 });
 
-// ==================== TRANSACTION ENDPOINTS ====================
 app.post('/api/transactions/add', async (req, res) => {
     try {
         const { transaction } = req.body;
@@ -368,7 +388,6 @@ app.post('/api/transactions/get', async (req, res) => {
     }
 });
 
-// ==================== PROMO ENDPOINTS ====================
 app.post('/api/promo/apply', async (req, res) => {
     try {
         const { code, userId } = req.body;
@@ -411,7 +430,6 @@ app.post('/api/promo/apply', async (req, res) => {
     }
 });
 
-// ==================== BOT ENDPOINTS ====================
 app.post('/api/bot/check-channel', async (req, res) => {
     try {
         const { channel, userId } = req.body;
@@ -422,6 +440,9 @@ app.post('/api/bot/check-channel', async (req, res) => {
             return res.status(400).json({ success: false, error: 'Invalid channel' });
         }
         const BOT_TOKEN = process.env.BOT_TOKEN;
+        if (!BOT_TOKEN) {
+            return res.json({ isMember: true, error: 'bot_token_missing' });
+        }
         const botMe = await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/getMe`);
         const botData = await botMe.json();
         const botId = botData.result.id;
@@ -452,6 +473,9 @@ app.post('/api/bot/check-admin', async (req, res) => {
             return res.status(400).json({ success: false, error: 'Invalid task URL' });
         }
         const BOT_TOKEN = process.env.BOT_TOKEN;
+        if (!BOT_TOKEN) {
+            return res.json({ isAdmin: false, error: 'bot_token_missing' });
+        }
         const chatId = taskUrl.match(/t\.me\/([^\/\?]+)/)?.[1];
         if (!chatId) {
             return res.json({ isAdmin: false, error: 'Invalid channel URL' });
@@ -471,7 +495,6 @@ app.post('/api/bot/check-admin', async (req, res) => {
     }
 });
 
-// ==================== WITHDRAWAL ENDPOINTS ====================
 app.post('/api/withdraw/request', async (req, res) => {
     const { userId, amount } = req.body;
     if (!validateUserId(userId)) {
@@ -656,11 +679,16 @@ async function addWithdrawalTransaction(userId, amount, address, status) {
 
 async function processXrocketTransfer(userId, amount, memo) {
     try {
+        const XROCKET_API_KEY = process.env.XROCKET_API_KEY;
+        if (!XROCKET_API_KEY) {
+            console.warn('XROCKET_API_KEY not set, skipping xRocket transfer');
+            return { success: false, error: 'XROCKET_API_KEY missing' };
+        }
         const response = await fetch('https://pay.xrocket.exchange/app/transfer', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
-                'Rocket-Pay-Key': process.env.XROCKET_API_KEY
+                'Rocket-Pay-Key': XROCKET_API_KEY
             },
             body: JSON.stringify({
                 tgUserId: parseInt(userId),
@@ -685,7 +713,6 @@ async function processXrocketTransfer(userId, amount, memo) {
     }
 }
 
-// ==================== BALANCE ENDPOINTS ====================
 app.post('/api/balance/add', async (req, res) => {
     try {
         const { userId, amount, source, referenceId } = req.body;
@@ -829,9 +856,6 @@ app.post('/api/balance/deduct', async (req, res) => {
     }
 });
 
-// ==================== ADMIN ENDPOINTS ====================
-
-// Verify admin
 app.post('/api/admin/verify', async (req, res) => {
     try {
         const { userId } = req.body;
@@ -846,7 +870,6 @@ app.post('/api/admin/verify', async (req, res) => {
     }
 });
 
-// Dashboard stats
 app.post('/api/admin/stats', adminAuth, async (req, res) => {
     try {
         const { count: userCount } = await supabase.from('users').select('id', { count: 'exact', head: true });
@@ -873,7 +896,6 @@ app.post('/api/admin/stats', adminAuth, async (req, res) => {
     }
 });
 
-// Users management
 app.post('/api/admin/users', adminAuth, async (req, res) => {
     try {
         const { data, error } = await supabase
@@ -932,7 +954,6 @@ app.post('/api/admin/users/delete', adminAuth, async (req, res) => {
     }
 });
 
-// Tasks management
 app.post('/api/admin/tasks', adminAuth, async (req, res) => {
     try {
         const { data, error } = await supabase
@@ -949,7 +970,7 @@ app.post('/api/admin/tasks', adminAuth, async (req, res) => {
 
 app.post('/api/admin/tasks/create', adminAuth, async (req, res) => {
     try {
-        const { name, description, url, max_completions, reward_gram, reward_games } = req.body;
+        const { name, description, url, max_completions } = req.body;
         if (!name || !url) {
             return res.status(400).json({ success: false, error: 'Name and URL required' });
         }
@@ -1022,7 +1043,6 @@ app.post('/api/admin/tasks/delete', adminAuth, async (req, res) => {
     }
 });
 
-// Transactions management
 app.post('/api/admin/transactions', adminAuth, async (req, res) => {
     try {
         const { data, error } = await supabase
@@ -1078,7 +1098,6 @@ app.post('/api/admin/withdraw/reject', adminAuth, async (req, res) => {
     }
 });
 
-// Promo codes management
 app.post('/api/admin/promo', adminAuth, async (req, res) => {
     try {
         const { data, error } = await supabase
@@ -1139,7 +1158,6 @@ app.post('/api/admin/promo/delete', adminAuth, async (req, res) => {
     }
 });
 
-// Notifications
 app.post('/api/admin/notify/all', adminAuth, async (req, res) => {
     try {
         const { title, message, recipients } = req.body;
@@ -1172,7 +1190,6 @@ app.post('/api/admin/notify/all', adminAuth, async (req, res) => {
     }
 });
 
-// Activity logs
 app.post('/api/admin/logs', adminAuth, async (req, res) => {
     try {
         const { data, error } = await supabase
@@ -1188,7 +1205,6 @@ app.post('/api/admin/logs', adminAuth, async (req, res) => {
     }
 });
 
-// ==================== MISC ENDPOINTS ====================
 app.get('/api/time/current', (req, res) => {
     res.json({ serverTime: Date.now() });
 });
@@ -1205,5 +1221,5 @@ app.get('*', (req, res) => {
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
-    console.log(`Server running on port ${PORT}`);
+    console.log(`✅ Server running on port ${PORT}`);
 });
