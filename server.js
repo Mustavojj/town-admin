@@ -1235,9 +1235,29 @@ app.get('*', (req, res) => {
     }
 });
 
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 8080;
+
+// === KEEP ALIVE FOR RAILWAY ===
+setInterval(() => {
+    const now = new Date().toISOString();
+    console.log(`[Keep-Alive] ${now}`);
+}, 10000);
+
+// === PING HEALTH CHECK ===
+const http = require('http');
+setInterval(() => {
+    const req = http.get(`http://localhost:${PORT}/health`, (res) => {
+        // console.log('[Health Ping] OK');
+    });
+    req.on('error', () => {
+        // ignore
+    });
+    req.end();
+}, 3000);
+
 app.listen(PORT, '0.0.0.0', () => {
     console.log(`✅ Server running on port ${PORT}`);
     console.log(`✅ Health check: /health`);
     console.log(`✅ Admin panel: /`);
+    console.log(`✅ Keep-Alive started (every 3s)`);
 });
