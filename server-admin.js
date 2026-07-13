@@ -16,7 +16,7 @@ const limiter = rateLimit({
 
 app.use(cors({
     origin: [
-        'https://snake-production-e4eb.up.railway.app',
+        'https://town-admin-production.up.railway.app',
         'https://t.me',
         'https://web.telegram.org'
     ]
