@@ -1,0 +1,850 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>GRAM TOWN - Admin Panel</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        :root {
+            --primary: #4A7CF7;
+            --primary-dark: #3A5FC7;
+            --bg: #0a0a12;
+            --bg-secondary: #12121e;
+            --glass-bg: rgba(255,255,255,0.05);
+            --glass-border: rgba(255,255,255,0.08);
+            --text: #ffffff;
+            --text-secondary: rgba(255,255,255,0.6);
+            --text-muted: rgba(255,255,255,0.35);
+            --success: #34C759;
+            --error: #FF3B30;
+            --warning: #FF9500;
+            --card-radius: 12px;
+            --shadow: 0 8px 32px rgba(0,0,0,0.4);
+        }
+        body {
+            font-family: 'Inter', sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            min-height: 100vh;
+            padding: 16px;
+        }
+        .container { max-width: 1400px; margin: 0 auto; }
+
+        /* Header */
+        .header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 16px 0 20px;
+            border-bottom: 1px solid var(--glass-border);
+            margin-bottom: 24px;
+            flex-wrap: wrap;
+            gap: 12px;
+        }
+        .header-left { display: flex; align-items: center; gap: 16px; }
+        .header-logo {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            object-fit: cover;
+            border: 2px solid var(--primary);
+        }
+        .header h1 {
+            font-size: 22px;
+            font-weight: 800;
+            background: linear-gradient(135deg, var(--primary), #6C5CE7);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        .header .admin-id {
+            font-size: 13px;
+            color: var(--text-secondary);
+            background: var(--glass-bg);
+            padding: 6px 16px;
+            border-radius: 20px;
+            border: 1px solid var(--glass-border);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .header .admin-id i { color: var(--primary); }
+
+        /* Stats */
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+            gap: 12px;
+            margin-bottom: 24px;
+        }
+        .stat-card {
+            background: var(--glass-bg);
+            border: 1px solid var(--glass-border);
+            border-radius: var(--card-radius);
+            padding: 14px 16px;
+            text-align: center;
+            transition: all 0.2s;
+        }
+        .stat-card:hover { border-color: rgba(255,255,255,0.15); }
+        .stat-card .value {
+            font-size: 22px;
+            font-weight: 700;
+            color: var(--primary);
+        }
+        .stat-card .label {
+            font-size: 11px;
+            color: var(--text-secondary);
+            margin-top: 4px;
+        }
+
+        /* Tabs */
+        .tabs {
+            display: flex;
+            gap: 4px;
+            background: var(--glass-bg);
+            border: 1px solid var(--glass-border);
+            border-radius: 10px;
+            padding: 4px;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+        }
+        .tab-btn {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 8px;
+            background: transparent;
+            color: var(--text-secondary);
+            font-size: 13px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .tab-btn i { font-size: 14px; }
+        .tab-btn.active {
+            background: var(--primary);
+            color: #fff;
+            box-shadow: 0 4px 20px var(--primary-glow, rgba(74,124,247,0.3));
+        }
+        .tab-btn:hover:not(.active) { background: var(--glass-border); }
+        .tab-content { display: none; animation: fadeIn 0.3s ease; }
+        .tab-content.active { display: block; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+
+        /* Cards */
+        .panel-card {
+            background: var(--glass-bg);
+            border: 1px solid var(--glass-border);
+            border-radius: var(--card-radius);
+            padding: 18px 20px;
+            margin-bottom: 16px;
+        }
+        .panel-card .card-title {
+            font-size: 15px;
+            font-weight: 600;
+            margin-bottom: 14px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .panel-card .card-title i { color: var(--primary); }
+
+        /* Forms */
+        .form-group { margin-bottom: 12px; }
+        .form-group label {
+            display: block;
+            font-size: 12px;
+            font-weight: 500;
+            color: var(--text-secondary);
+            margin-bottom: 4px;
+        }
+        .form-control {
+            width: 100%;
+            padding: 10px 14px;
+            background: var(--bg-secondary);
+            border: 1px solid var(--glass-border);
+            border-radius: 8px;
+            color: var(--text);
+            font-size: 14px;
+            transition: border-color 0.2s;
+            font-family: inherit;
+        }
+        .form-control:focus { outline: none; border-color: var(--primary); }
+        .form-control::placeholder { color: var(--text-muted); }
+        select.form-control { appearance: none; cursor: pointer; }
+        textarea.form-control { resize: vertical; min-height: 80px; }
+
+        /* Buttons */
+        .btn {
+            padding: 10px 22px;
+            border: none;
+            border-radius: 8px;
+            font-size: 13px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .btn-primary { background: var(--primary); color: #fff; }
+        .btn-primary:hover { background: var(--primary-dark); transform: scale(1.02); }
+        .btn-success { background: var(--success); color: #fff; }
+        .btn-success:hover { opacity: 0.85; transform: scale(1.02); }
+        .btn-danger { background: var(--error); color: #fff; }
+        .btn-danger:hover { opacity: 0.85; transform: scale(1.02); }
+        .btn-warning { background: var(--warning); color: #fff; }
+        .btn-warning:hover { opacity: 0.85; transform: scale(1.02); }
+        .btn-outline { background: transparent; border: 1px solid var(--glass-border); color: var(--text-secondary); }
+        .btn-outline:hover { background: var(--glass-border); color: var(--text); }
+        .btn-sm { padding: 4px 12px; font-size: 11px; }
+        .btn-group { display: flex; gap: 6px; flex-wrap: wrap; }
+
+        /* Tables */
+        .table-responsive { overflow-x: auto; }
+        table { width: 100%; border-collapse: collapse; font-size: 13px; }
+        th {
+            text-align: left;
+            padding: 10px 12px;
+            color: var(--text-secondary);
+            font-weight: 500;
+            border-bottom: 1px solid var(--glass-border);
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        td { padding: 10px 12px; border-bottom: 1px solid var(--glass-border); vertical-align: middle; }
+        tr:hover td { background: var(--glass-bg); }
+
+        /* Badges */
+        .badge {
+            display: inline-block;
+            padding: 2px 12px;
+            border-radius: 12px;
+            font-size: 11px;
+            font-weight: 500;
+        }
+        .badge-active { background: rgba(52,199,89,0.15); color: var(--success); }
+        .badge-pending { background: rgba(255,149,0,0.15); color: var(--warning); }
+        .badge-completed { background: rgba(52,199,89,0.15); color: var(--success); }
+        .badge-rejected { background: rgba(255,59,48,0.15); color: var(--error); }
+        .badge-gram { background: rgba(74,124,247,0.15); color: var(--primary); }
+        .badge-games { background: rgba(255,149,0,0.15); color: var(--warning); }
+
+        /* Utilities */
+        .search-row { display: flex; gap: 8px; margin-bottom: 12px; flex-wrap: wrap; }
+        .search-row .form-control { flex: 1; min-width: 120px; }
+        .code-display {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-family: monospace;
+            font-size: 14px;
+            background: var(--bg-secondary);
+            padding: 4px 12px;
+            border-radius: 6px;
+            border: 1px solid var(--glass-border);
+        }
+        .code-display .copy-btn {
+            background: none;
+            border: none;
+            color: var(--text-secondary);
+            cursor: pointer;
+            padding: 4px;
+        }
+        .code-display .copy-btn:hover { color: var(--text); }
+        .flex-between { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px; }
+        .flex { display: flex; align-items: center; gap: 8px; }
+        .flex-wrap { flex-wrap: wrap; }
+        .mt-8 { margin-top: 8px; }
+        .mt-12 { margin-top: 12px; }
+        .mb-8 { margin-bottom: 8px; }
+        .mb-12 { margin-bottom: 12px; }
+        .text-muted { color: var(--text-muted); font-size: 12px; }
+        .text-success { color: var(--success); }
+        .text-error { color: var(--error); }
+        .text-warning { color: var(--warning); }
+        .gap-8 { gap: 8px; }
+        .w-full { width: 100%; }
+        .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+        @media (max-width: 600px) { .grid-2 { grid-template-columns: 1fr; } }
+
+        /* Progress */
+        .progress-bar { width: 100%; height: 4px; background: var(--glass-border); border-radius: 4px; overflow: hidden; margin-top: 8px; }
+        .progress-bar .progress-fill { height: 100%; background: var(--primary); transition: width 0.5s ease; }
+
+        /* Toast */
+        .toast-container {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            z-index: 1000;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            max-width: 400px;
+        }
+        .toast {
+            background: var(--bg-secondary);
+            border: 1px solid var(--glass-border);
+            border-radius: var(--card-radius);
+            padding: 14px 20px;
+            box-shadow: var(--shadow);
+            animation: slideUp 0.3s ease;
+            font-size: 14px;
+        }
+        .toast.success { border-left: 4px solid var(--success); }
+        .toast.error { border-left: 4px solid var(--error); }
+        .toast.warning { border-left: 4px solid var(--warning); }
+        @keyframes slideUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+
+        /* Notification log */
+        .notif-log {
+            max-height: 300px;
+            overflow-y: auto;
+            font-size: 12px;
+            color: var(--text-secondary);
+            background: var(--bg-secondary);
+            border-radius: 8px;
+            padding: 8px 12px;
+            border: 1px solid var(--glass-border);
+        }
+        .notif-log .entry { padding: 4px 0; border-bottom: 1px solid var(--glass-border); }
+        .notif-log .entry:last-child { border-bottom: none; }
+        .notif-log .entry .ok { color: var(--success); }
+        .notif-log .entry .fail { color: var(--error); }
+
+        /* User result */
+        .user-result-box {
+            background: var(--bg-secondary);
+            border-radius: 8px;
+            padding: 14px;
+            margin-top: 8px;
+            border: 1px solid var(--glass-border);
+        }
+        .user-result-box .row { display: flex; gap: 12px; flex-wrap: wrap; }
+        .user-result-box .row .item { font-size: 13px; }
+        .user-result-box .row .item b { color: var(--text-secondary); }
+
+        /* Loading */
+        .loading { opacity: 0.5; pointer-events: none; }
+    </style>
+</head>
+<body>
+<div class="container" id="app">
+    <!-- Header -->
+    <div class="header">
+        <div class="header-left">
+            <img src="https://i.ibb.co/TBhtwyMg/e37282e92d9e.jpg" class="header-logo" alt="Logo">
+            <h1><i class="fas fa-crown" style="color:var(--primary);-webkit-text-fill-color:var(--primary);"></i> Admin Panel</h1>
+        </div>
+        <div class="admin-id"><i class="fas fa-user-shield"></i> Admin ID: <span id="admin-id-display">-</span></div>
+    </div>
+
+    <!-- Stats -->
+    <div class="stats-grid" id="stats-grid">
+        <div class="stat-card"><div class="value" id="stat-users">-</div><div class="label">Total Users</div></div>
+        <div class="stat-card"><div class="value" id="stat-gram">-</div><div class="label">Total GRAM</div></div>
+        <div class="stat-card"><div class="value" id="stat-games">-</div><div class="label">Total Games</div></div>
+        <div class="stat-card"><div class="value" id="stat-tasks">-</div><div class="label">Active / Total Tasks</div></div>
+        <div class="stat-card"><div class="value" id="stat-withdrawals">-</div><div class="label">Pending Withdrawals</div></div>
+    </div>
+
+    <!-- Tabs -->
+    <div class="tabs" id="tabs">
+        <button class="tab-btn active" data-tab="users"><i class="fas fa-users"></i> Users</button>
+        <button class="tab-btn" data-tab="tasks"><i class="fas fa-tasks"></i> Tasks</button>
+        <button class="tab-btn" data-tab="withdrawals"><i class="fas fa-arrow-up-right-from-square"></i> Withdrawals</button>
+        <button class="tab-btn" data-tab="promo"><i class="fas fa-ticket"></i> Promo Codes</button>
+        <button class="tab-btn" data-tab="notifications"><i class="fas fa-bell"></i> Notifications</button>
+    </div>
+
+    <!-- USERS TAB -->
+    <div class="tab-content active" id="tab-users">
+        <div class="panel-card">
+            <div class="card-title"><i class="fas fa-search"></i> Search User</div>
+            <div class="search-row">
+                <input class="form-control" id="user-search-input" placeholder="Enter User ID..." type="number">
+                <button class="btn btn-primary" id="user-search-btn"><i class="fas fa-search"></i> Search</button>
+            </div>
+            <div id="user-result"></div>
+        </div>
+        <div class="panel-card">
+            <div class="card-title"><i class="fas fa-users"></i> Recent Users</div>
+            <div class="table-responsive">
+                <table>
+                    <thead><tr><th>ID</th><th>Name</th><th>GRAM</th><th>Games</th><th>Referrals</th><th>Action</th></tr></thead>
+                    <tbody id="users-list"></tbody>
+                </table>
+            </div>
+            <div class="flex mt-8">
+                <button class="btn btn-outline btn-sm" id="users-load-more"><i class="fas fa-plus"></i> Load More</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- TASKS TAB -->
+    <div class="tab-content" id="tab-tasks">
+        <div class="panel-card">
+            <div class="card-title"><i class="fas fa-plus-circle"></i> Create Task</div>
+            <div class="grid-2">
+                <div class="form-group"><label>Task Name</label><input class="form-control" id="task-name" placeholder="Task name"></div>
+                <div class="form-group"><label>Task URL</label><input class="form-control" id="task-url" placeholder="https://t.me/..."></div>
+                <div class="form-group"><label>Description</label><input class="form-control" id="task-desc" placeholder="Short description"></div>
+                <div class="form-group"><label>Max Completions</label><input class="form-control" id="task-max" type="number" value="100"></div>
+                <div class="form-group"><label>Reward GRAM</label><input class="form-control" id="task-gram" type="number" step="0.0001" value="0.0001"></div>
+                <div class="form-group"><label>Reward Games</label><input class="form-control" id="task-games" type="number" value="1"></div>
+            </div>
+            <button class="btn btn-primary" id="task-create-btn"><i class="fas fa-plus"></i> Create Task</button>
+        </div>
+        <div class="panel-card">
+            <div class="card-title"><i class="fas fa-tasks"></i> Tasks List</div>
+            <div class="search-row">
+                <input class="form-control" id="task-search-owner" placeholder="Filter by Owner ID..." type="number">
+                <select class="form-control" id="task-search-status" style="width:auto;min-width:120px;">
+                    <option value="">All Status</option>
+                    <option value="pending">Pending</option>
+                    <option value="active">Active</option>
+                    <option value="completed">Completed</option>
+                    <option value="rejected">Rejected</option>
+                </select>
+                <button class="btn btn-primary" id="task-search-btn"><i class="fas fa-search"></i> Search</button>
+            </div>
+            <div class="table-responsive">
+                <table>
+                    <thead><tr><th>ID</th><th>Name</th><th>Owner</th><th>Progress</th><th>Status</th><th>Action</th></tr></thead>
+                    <tbody id="tasks-list"></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- WITHDRAWALS TAB -->
+    <div class="tab-content" id="tab-withdrawals">
+        <div class="panel-card">
+            <div class="card-title"><i class="fas fa-arrow-up-right-from-square"></i> Withdrawals</div>
+            <div class="search-row">
+                <input class="form-control" id="withdrawal-search-user" placeholder="Filter by User ID..." type="number">
+                <select class="form-control" id="withdrawal-search-status" style="width:auto;min-width:120px;">
+                    <option value="">All Status</option>
+                    <option value="pending">Pending</option>
+                    <option value="completed">Completed</option>
+                    <option value="rejected">Rejected</option>
+                </select>
+                <button class="btn btn-primary" id="withdrawal-search-btn"><i class="fas fa-search"></i> Search</button>
+            </div>
+            <div class="table-responsive">
+                <table>
+                    <thead><tr><th>ID</th><th>User</th><th>Amount</th><th>Status</th><th>Date</th><th>Action</th></tr></thead>
+                    <tbody id="withdrawals-list"></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- PROMO TAB -->
+    <div class="tab-content" id="tab-promo">
+        <div class="panel-card">
+            <div class="card-title"><i class="fas fa-ticket"></i> Create Promo Code</div>
+            <div class="grid-2">
+                <div class="form-group"><label>Code</label>
+                    <div class="flex">
+                        <input class="form-control" id="promo-code" placeholder="Enter code or generate">
+                        <button class="btn btn-outline" id="promo-generate-btn" style="flex-shrink:0;"><i class="fas fa-dice"></i> Gen</button>
+                    </div>
+                </div>
+                <div class="form-group"><label>Reward Amount</label><input class="form-control" id="promo-reward" type="number" step="0.0001" value="0.001"></div>
+                <div class="form-group"><label>Reward Type</label>
+                    <select class="form-control" id="promo-type"><option value="gram">GRAM</option><option value="games">Games</option></select>
+                </div>
+                <div class="form-group"><label>Max Uses</label><input class="form-control" id="promo-max-uses" type="number" value="999999"></div>
+            </div>
+            <button class="btn btn-primary" id="promo-create-btn"><i class="fas fa-plus"></i> Create Promo</button>
+        </div>
+        <div class="panel-card">
+            <div class="card-title"><i class="fas fa-list"></i> Promo Codes</div>
+            <div class="table-responsive">
+                <table>
+                    <thead><tr><th>Code</th><th>Reward</th><th>Type</th><th>Used</th><th>Max Uses</th><th>Action</th></tr></thead>
+                    <tbody id="promo-list"></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- NOTIFICATIONS TAB -->
+    <div class="tab-content" id="tab-notifications">
+        <div class="panel-card">
+            <div class="card-title"><i class="fas fa-bell"></i> Send Notification</div>
+            <div class="grid-2">
+                <div class="form-group"><label>Target</label>
+                    <select class="form-control" id="notif-target">
+                        <option value="all">All Users</option>
+                        <option value="single">Single User</option>
+                    </select>
+                </div>
+                <div class="form-group" id="notif-user-group" style="display:none;">
+                    <label>User ID</label>
+                    <input class="form-control" id="notif-user-id" type="number" placeholder="Enter User ID">
+                </div>
+            </div>
+            <div class="form-group"><label>Message (HTML supported)</label>
+                <textarea class="form-control" id="notif-message" placeholder="Enter your message with HTML tags..."></textarea>
+            </div>
+            <div class="form-group"><label>Buttons (JSON: [{"text":"Button","url":"https://..."}])</label>
+                <input class="form-control" id="notif-buttons" placeholder='[{"text":"Open App","url":"https://t.me/GramTownBot"}]'>
+            </div>
+            <button class="btn btn-primary" id="notif-send-btn"><i class="fas fa-paper-plane"></i> Send Notification</button>
+            <div class="mt-12" id="notif-progress" style="display:none;">
+                <div class="text-muted">Sending...</div>
+                <div class="progress-bar"><div class="progress-fill" id="notif-progress-fill" style="width:0%"></div></div>
+                <div class="text-muted mt-8" id="notif-status-text"></div>
+            </div>
+            <div class="mt-12">
+                <div class="text-muted mb-8">Recent Log</div>
+                <div class="notif-log" id="notif-log"></div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Toast Container -->
+<div class="toast-container" id="toast-container"></div>
+
+<script>
+const API_URL = 'https://snake-production-e4eb.up.railway.app/api';
+let adminId = prompt('Enter Admin ID:') || '0';
+document.getElementById('admin-id-display').textContent = adminId;
+
+function toast(message, type = 'info') {
+    const container = document.getElementById('toast-container');
+    const el = document.createElement('div');
+    el.className = `toast ${type}`;
+    el.textContent = message;
+    container.appendChild(el);
+    setTimeout(() => { el.style.opacity = '0'; setTimeout(() => el.remove(), 300); }, 3500);
+}
+
+async function apiCall(endpoint, data = {}) {
+    try {
+        const response = await fetch(`${API_URL}${endpoint}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ ...data, adminId })
+        });
+        const result = await response.json();
+        if (!result.success) {
+            toast(result.error || 'Request failed', 'error');
+            return null;
+        }
+        return result;
+    } catch (e) {
+        toast('Network error: ' + e.message, 'error');
+        return null;
+    }
+}
+
+// ===== TABS =====
+document.querySelectorAll('.tab-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+        document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+        document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+        btn.classList.add('active');
+        document.getElementById('tab-' + btn.dataset.tab).classList.add('active');
+        if (btn.dataset.tab === 'users') loadUsers();
+        if (btn.dataset.tab === 'tasks') loadTasks();
+        if (btn.dataset.tab === 'withdrawals') loadWithdrawals();
+        if (btn.dataset.tab === 'promo') loadPromoCodes();
+        if (btn.dataset.tab === 'notifications') loadStats();
+    });
+});
+
+// ===== STATS =====
+async function loadStats() {
+    const result = await apiCall('/admin/stats');
+    if (result) {
+        document.getElementById('stat-users').textContent = result.data.totalUsers;
+        document.getElementById('stat-gram').textContent = result.data.totalGramBalance.toFixed(4);
+        document.getElementById('stat-games').textContent = result.data.totalGamesBalance;
+        document.getElementById('stat-tasks').textContent = `${result.data.activeTasks} / ${result.data.totalTasks}`;
+        document.getElementById('stat-withdrawals').textContent = result.data.pendingWithdrawals;
+    }
+}
+
+// ===== USERS =====
+let usersOffset = 0;
+async function loadUsers(offset = 0) {
+    const result = await apiCall('/admin/users/list', { limit: 20, offset });
+    if (result) {
+        const tbody = document.getElementById('users-list');
+        if (offset === 0) tbody.innerHTML = '';
+        result.data.forEach(u => {
+            tbody.innerHTML += `
+                <tr>
+                    <td>${u.id}</td>
+                    <td>${u.first_name || 'User'} ${u.username ? '@'+u.username : ''}</td>
+                    <td>${u.gram_balance?.toFixed(6) || '0'}</td>
+                    <td>${u.games_balance || 0}</td>
+                    <td>${u.total_referrals || 0}</td>
+                    <td><button class="btn btn-outline btn-sm" onclick="editUser(${u.id})"><i class="fas fa-edit"></i></button></td>
+                </tr>
+            `;
+        });
+        usersOffset = offset + 20;
+    }
+}
+document.getElementById('users-load-more')?.addEventListener('click', () => loadUsers(usersOffset));
+
+async function editUser(userId) {
+    const result = await apiCall('/admin/users/search', { userId });
+    if (result && result.data) {
+        const u = result.data;
+        const input = prompt(`Edit User ${u.id}\nCurrent GRAM: ${u.gram_balance}\nCurrent Games: ${u.games_balance}\n\nEnter: +0.01 for add, -0.01 for deduct\nExample: "games +1" for games`, '');
+        if (input === null) return;
+        const parts = input.split(' ');
+        const type = parts.length > 1 && parts[0].toLowerCase() === 'games' ? 'games' : 'gram';
+        const amount = parseFloat(parts.length > 1 ? parts[1] : input);
+        if (isNaN(amount)) { toast('Invalid amount', 'error'); return; }
+        const result2 = await apiCall('/admin/users/adjust-balance', { userId, amount, type });
+        if (result2) { toast(`${type} balance updated!`, 'success'); loadUsers(0); }
+    }
+}
+
+document.getElementById('user-search-btn')?.addEventListener('click', async () => {
+    const userId = document.getElementById('user-search-input').value.trim();
+    if (!userId) { toast('Enter user ID', 'warning'); return; }
+    const result = await apiCall('/admin/users/search', { userId: parseInt(userId) });
+    const container = document.getElementById('user-result');
+    if (result && result.data) {
+        const u = result.data;
+        container.innerHTML = `
+            <div class="user-result-box">
+                <div class="row">
+                    <div class="item"><b>ID:</b> ${u.id}</div>
+                    <div class="item"><b>Name:</b> ${u.first_name || 'User'} ${u.username ? '@'+u.username : ''}</div>
+                    <div class="item"><b>GRAM:</b> ${u.gram_balance?.toFixed(6) || '0'}</div>
+                    <div class="item"><b>Games:</b> ${u.games_balance || 0}</div>
+                    <div class="item"><b>Referrals:</b> ${u.total_referrals || 0}</div>
+                </div>
+                <button class="btn btn-outline btn-sm mt-8" onclick="editUser(${u.id})"><i class="fas fa-edit"></i> Edit Balance</button>
+            </div>
+        `;
+    } else {
+        container.innerHTML = '<div class="text-muted mt-8">User not found</div>';
+    }
+});
+
+// ===== TASKS =====
+async function loadTasks() {
+    const owner = document.getElementById('task-search-owner')?.value;
+    const status = document.getElementById('task-search-status')?.value;
+    const result = await apiCall('/admin/tasks/list', { owner: owner ? parseInt(owner) : null, status: status || null });
+    const tbody = document.getElementById('tasks-list');
+    tbody.innerHTML = '';
+    if (result && result.data) {
+        result.data.forEach(t => {
+            const statusClass = t.status === 'active' ? 'badge-active' : t.status === 'pending' ? 'badge-pending' : t.status === 'completed' ? 'badge-completed' : 'badge-rejected';
+            tbody.innerHTML += `
+                <tr>
+                    <td style="font-size:11px;">${t.id}</td>
+                    <td>${t.name}</td>
+                    <td>${t.owner || 'Admin'}</td>
+                    <td>${t.total}/${t.max_completions}</td>
+                    <td><span class="badge ${statusClass}">${t.status}</span></td>
+                    <td>
+                        <div class="btn-group">
+                            ${t.status === 'pending' ? `<button class="btn btn-success btn-sm" onclick="updateTask('${t.id}','active')"><i class="fas fa-check"></i></button>` : ''}
+                            ${t.status === 'pending' ? `<button class="btn btn-danger btn-sm" onclick="updateTask('${t.id}','rejected')"><i class="fas fa-times"></i></button>` : ''}
+                            ${t.status === 'active' ? `<button class="btn btn-warning btn-sm" onclick="updateTask('${t.id}','completed')"><i class="fas fa-check-double"></i></button>` : ''}
+                            ${t.status === 'completed' ? `<span class="text-muted">Done</span>` : ''}
+                        </div>
+                    </td>
+                </tr>
+            `;
+        });
+    }
+}
+document.getElementById('task-search-btn')?.addEventListener('click', loadTasks);
+
+async function updateTask(taskId, status) {
+    const result = await apiCall('/admin/tasks/update-status', { taskId, status });
+    if (result) { toast(`Task ${status}`, 'success'); loadTasks(); }
+}
+
+document.getElementById('task-create-btn')?.addEventListener('click', async () => {
+    const name = document.getElementById('task-name').value.trim();
+    const url = document.getElementById('task-url').value.trim();
+    const description = document.getElementById('task-desc').value.trim();
+    const maxCompletions = parseInt(document.getElementById('task-max').value) || 100;
+    const rewardGram = parseFloat(document.getElementById('task-gram').value) || 0.0001;
+    const rewardGames = parseInt(document.getElementById('task-games').value) || 1;
+    if (!name || !url) { toast('Name and URL required', 'warning'); return; }
+    const result = await apiCall('/admin/tasks/create', { name, url, description, maxCompletions, verification: false, rewardGram, rewardGames });
+    if (result) {
+        toast('Task created!', 'success');
+        document.getElementById('task-name').value = '';
+        document.getElementById('task-url').value = '';
+        document.getElementById('task-desc').value = '';
+        loadTasks();
+    }
+});
+
+// ===== WITHDRAWALS =====
+async function loadWithdrawals() {
+    const userId = document.getElementById('withdrawal-search-user')?.value;
+    const status = document.getElementById('withdrawal-search-status')?.value;
+    const result = await apiCall('/admin/withdrawals/list', { userId: userId ? parseInt(userId) : null, status: status || null });
+    const tbody = document.getElementById('withdrawals-list');
+    tbody.innerHTML = '';
+    if (result && result.data) {
+        result.data.forEach(w => {
+            const statusClass = w.status === 'completed' ? 'badge-completed' : w.status === 'pending' ? 'badge-pending' : 'badge-rejected';
+            const date = new Date(w.timestamp);
+            tbody.innerHTML += `
+                <tr>
+                    <td style="font-size:11px;">${w.id}</td>
+                    <td>${w.user_id}</td>
+                    <td>${w.amount?.toFixed(6) || '0'}</td>
+                    <td><span class="badge ${statusClass}">${w.status}</span></td>
+                    <td style="font-size:11px;">${date.toLocaleDateString()} ${date.toLocaleTimeString()}</td>
+                    <td>
+                        <div class="btn-group">
+                            ${w.status === 'pending' ? `<button class="btn btn-success btn-sm" onclick="updateWithdrawal('${w.id}','completed')"><i class="fas fa-check"></i></button>` : ''}
+                            ${w.status === 'pending' ? `<button class="btn btn-danger btn-sm" onclick="updateWithdrawal('${w.id}','rejected')"><i class="fas fa-times"></i></button>` : ''}
+                            ${w.status === 'completed' ? `<span class="text-success">Done</span>` : ''}
+                            ${w.status === 'rejected' ? `<span class="text-error">Rejected</span>` : ''}
+                        </div>
+                    </td>
+                </tr>
+            `;
+        });
+    }
+}
+document.getElementById('withdrawal-search-btn')?.addEventListener('click', loadWithdrawals);
+
+async function updateWithdrawal(transactionId, status) {
+    const result = await apiCall('/admin/withdrawals/update-status', { transactionId, status });
+    if (result) { toast(`Withdrawal ${status}`, 'success'); loadWithdrawals(); }
+}
+
+// ===== PROMO =====
+async function loadPromoCodes() {
+    const result = await apiCall('/admin/promo/list');
+    const tbody = document.getElementById('promo-list');
+    tbody.innerHTML = '';
+    if (result && result.data) {
+        result.data.forEach(p => {
+            tbody.innerHTML += `
+                <tr>
+                    <td>
+                        <div class="code-display">
+                            <span>${p.code}</span>
+                            <button class="copy-btn" onclick="copyText('${p.code}')"><i class="fas fa-copy"></i></button>
+                        </div>
+                    </td>
+                    <td>${p.reward}</td>
+                    <td><span class="badge ${p.reward_type === 'gram' ? 'badge-gram' : 'badge-games'}">${p.reward_type}</span></td>
+                    <td>${p.total || 0}</td>
+                    <td>${p.max_uses || '∞'}</td>
+                    <td><button class="btn btn-danger btn-sm" onclick="deletePromo('${p.code}')"><i class="fas fa-trash"></i></button></td>
+                </tr>
+            `;
+        });
+    }
+}
+
+function copyText(text) {
+    navigator.clipboard.writeText(text);
+    toast('Copied!', 'success');
+}
+
+async function deletePromo(code) {
+    if (!confirm(`Delete promo ${code}?`)) return;
+    const result = await apiCall('/admin/promo/delete', { code });
+    if (result) { toast('Promo deleted', 'success'); loadPromoCodes(); }
+}
+
+document.getElementById('promo-generate-btn')?.addEventListener('click', () => {
+    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+    let code = '';
+    for (let i = 0; i < 8; i++) code += chars[Math.floor(Math.random() * chars.length)];
+    document.getElementById('promo-code').value = code;
+});
+
+document.getElementById('promo-create-btn')?.addEventListener('click', async () => {
+    const code = document.getElementById('promo-code').value.trim().toUpperCase();
+    const reward = parseFloat(document.getElementById('promo-reward').value) || 0.001;
+    const rewardType = document.getElementById('promo-type').value;
+    const maxUses = parseInt(document.getElementById('promo-max-uses').value) || 999999;
+    if (!code) { toast('Enter promo code', 'warning'); return; }
+    const result = await apiCall('/admin/promo/create', { code, reward, rewardType, maxUses });
+    if (result) { toast('Promo created!', 'success'); document.getElementById('promo-code').value = ''; loadPromoCodes(); }
+});
+
+// ===== NOTIFICATIONS =====
+document.getElementById('notif-target')?.addEventListener('change', function() {
+    document.getElementById('notif-user-group').style.display = this.value === 'single' ? 'block' : 'none';
+});
+
+let notifLog = [];
+
+function addNotifLog(userId, status, message = '') {
+    notifLog.unshift({ userId, status, message, time: new Date().toLocaleTimeString() });
+    const container = document.getElementById('notif-log');
+    container.innerHTML = notifLog.slice(0, 20).map(entry => `
+        <div class="entry">
+            <span class="${entry.status === 'success' ? 'ok' : 'fail'}">${entry.status === 'success' ? '✅' : '❌'}</span>
+            User ${entry.userId} - ${entry.status} ${entry.message ? '- ' + entry.message : ''}
+            <span class="text-muted">${entry.time}</span>
+        </div>
+    `).join('');
+}
+
+document.getElementById('notif-send-btn')?.addEventListener('click', async () => {
+    const target = document.getElementById('notif-target').value;
+    const userId = target === 'single' ? parseInt(document.getElementById('notif-user-id').value) : null;
+    const message = document.getElementById('notif-message').value.trim();
+    const buttonsRaw = document.getElementById('notif-buttons').value.trim();
+    
+    if (!message) { toast('Enter message', 'warning'); return; }
+    if (target === 'single' && !userId) { toast('Enter user ID', 'warning'); return; }
+    
+    let buttons = null;
+    if (buttonsRaw) {
+        try { buttons = JSON.parse(buttonsRaw); } catch(e) { toast('Invalid JSON for buttons', 'error'); return; }
+    }
+    
+    const progressDiv = document.getElementById('notif-progress');
+    const progressFill = document.getElementById('notif-progress-fill');
+    const statusText = document.getElementById('notif-status-text');
+    progressDiv.style.display = 'block';
+    progressFill.style.width = '0%';
+    statusText.textContent = 'Preparing...';
+    
+    const result = await apiCall('/admin/notifications/send', { userId, message, buttons, target });
+    
+    if (result) {
+        progressFill.style.width = '100%';
+        statusText.textContent = `✅ Sent: ${result.sent} | Failed: ${result.failed}`;
+        if (result.results) {
+            result.results.forEach(r => addNotifLog(r.userId, r.success ? 'success' : 'failed', r.error || ''));
+        }
+        toast(`Sent: ${result.sent}, Failed: ${result.failed}`, result.failed > 0 ? 'warning' : 'success');
+        setTimeout(() => { progressDiv.style.display = 'none'; }, 3000);
+    } else {
+        statusText.textContent = '❌ Failed to send';
+        progressDiv.style.display = 'none';
+    }
+});
+
+// ===== INIT =====
+loadStats();
+loadUsers(0);
+setInterval(loadStats, 30000);
+</script>
+</body>
+</html>
