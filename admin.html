@@ -34,10 +34,6 @@
                 <img src="https://i.ibb.co/TBhtwyMg/e37282e92d9e.jpg" class="header-logo" alt="Logo">
                 <h1><i class="fas fa-crown" style="color:var(--primary);-webkit-text-fill-color:var(--primary);"></i> Admin Panel</h1>
             </div>
-            <div class="header-actions">
-                <button class="btn btn-outline btn-sm" onclick="changePassword()"><i class="fas fa-key"></i> Change Password</button>
-                <button class="btn btn-outline btn-sm" onclick="logout()"><i class="fas fa-sign-out-alt"></i> Logout</button>
-            </div>
         </div>
 
         <!-- Stats -->
@@ -88,6 +84,27 @@
                     <button class="btn btn-primary" id="task-search-btn"><i class="fas fa-search"></i> Search</button>
                 </div>
             </div>
+
+            <!-- Create Task Form -->
+            <div class="panel-card">
+                <div class="card-title"><i class="fas fa-plus-circle"></i> Create Task</div>
+                <div class="grid-2">
+                    <div class="form-group"><label>Task Name</label><input class="form-control" id="task-create-name" placeholder="Task name"></div>
+                    <div class="form-group"><label>Task URL</label><input class="form-control" id="task-create-url" placeholder="https://..."></div>
+                    <div class="form-group"><label>Description</label><input class="form-control" id="task-create-desc" placeholder="Description"></div>
+                    <div class="form-group"><label>Category</label>
+                        <select class="form-control" id="task-create-category">
+                            <option value="social">Social</option>
+                            <option value="partner">Partner</option>
+                        </select>
+                    </div>
+                    <div class="form-group"><label>Reward GRAM</label><input class="form-control" id="task-create-gram" type="number" step="0.0001" value="0.0001"></div>
+                    <div class="form-group"><label>Reward Games</label><input class="form-control" id="task-create-games" type="number" step="1" value="1"></div>
+                    <div class="form-group"><label>Max Completions</label><input class="form-control" id="task-create-max" type="number" value="100"></div>
+                </div>
+                <button class="btn btn-primary" id="task-create-btn"><i class="fas fa-plus"></i> Create Task</button>
+            </div>
+
             <div id="tasks-container"></div>
         </div>
 
@@ -103,8 +120,6 @@
                         <option value="completed">Completed</option>
                         <option value="rejected">Rejected</option>
                     </select>
-                    <input class="form-control" id="withdrawal-date-from" type="date" style="width:auto;min-width:140px;">
-                    <input class="form-control" id="withdrawal-date-to" type="date" style="width:auto;min-width:140px;">
                     <button class="btn btn-primary" id="withdrawal-search-btn"><i class="fas fa-search"></i> Search</button>
                 </div>
             </div>
@@ -148,10 +163,6 @@
                         <label>User ID</label>
                         <input class="form-control" id="notif-user-id" type="number" placeholder="Enter User ID">
                     </div>
-                </div>
-                <div class="form-group">
-                    <label>Schedule</label>
-                    <input class="form-control" id="notif-schedule" type="datetime-local">
                 </div>
                 <div class="form-group">
                     <label>Message (HTML supported)</label>
@@ -241,34 +252,6 @@ function login() {
     }
 }
 
-function changePassword() {
-    var current = prompt('Enter current password:');
-    if (current !== adminPassword) {
-        toast('Wrong current password!', 'error');
-        return;
-    }
-    var newPass = prompt('Enter new password:');
-    if (!newPass || newPass.length < 4) {
-        toast('Password must be at least 4 characters', 'error');
-        return;
-    }
-    var confirmPass = prompt('Confirm new password:');
-    if (newPass !== confirmPass) {
-        toast('Passwords do not match!', 'error');
-        return;
-    }
-    adminPassword = newPass;
-    localStorage.setItem('admin_password', adminPassword);
-    toast('Password changed successfully!', 'success');
-}
-
-function logout() {
-    document.getElementById('app').style.display = 'none';
-    document.getElementById('login-screen').style.display = 'flex';
-    document.getElementById('login-password').value = '';
-    document.getElementById('login-error').textContent = '';
-}
-
 function toast(message, type) {
     type = type || 'info';
     var container = document.getElementById('toast-container');
@@ -322,6 +305,7 @@ function setupEventListeners() {
     document.getElementById('notif-add-btn').addEventListener('click', addNotifButton);
     document.getElementById('notif-send-btn').addEventListener('click', sendNotification);
     document.getElementById('notif-message').addEventListener('input', updatePreview);
+    document.getElementById('task-create-btn').addEventListener('click', createTask);
 }
 
 async function loadStats() {
@@ -360,6 +344,39 @@ async function unbanUser(userId) {
     if (result) { toast('User unbanned', 'success'); loadUsers(); }
 }
 
+async function createTask() {
+    var name = document.getElementById('task-create-name').value.trim();
+    var url = document.getElementById('task-create-url').value.trim();
+    var desc = document.getElementById('task-create-desc').value.trim();
+    var category = document.getElementById('task-create-category').value;
+    var rewardGram = parseFloat(document.getElementById('task-create-gram').value) || 0.0001;
+    var rewardGames = parseInt(document.getElementById('task-create-games').value) || 1;
+    var maxCompletions = parseInt(document.getElementById('task-create-max').value) || 100;
+
+    if (!name) { toast('Enter task name', 'warning'); return; }
+    if (!url) { toast('Enter task URL', 'warning'); return; }
+    if (!desc) { toast('Enter description', 'warning'); return; }
+
+    var result = await apiCall('/admin/tasks/create', {
+        name: name,
+        url: url,
+        description: desc,
+        category: category,
+        rewardGram: rewardGram,
+        rewardGames: rewardGames,
+        maxCompletions: maxCompletions,
+        owner: 1891231976
+    });
+
+    if (result) {
+        toast('Task created!', 'success');
+        document.getElementById('task-create-name').value = '';
+        document.getElementById('task-create-url').value = '';
+        document.getElementById('task-create-desc').value = '';
+        loadTasks();
+    }
+}
+
 async function loadTasks() {
     var owner = document.getElementById('task-search-owner').value;
     var status = document.getElementById('task-search-status').value;
@@ -371,8 +388,8 @@ async function loadTasks() {
         result.data.forEach(function(t) {
             var statusClass = t.status === 'active' ? 'badge-active' : t.status === 'pending' ? 'badge-pending' : t.status === 'completed' ? 'badge-completed' : 'badge-rejected';
             var progress = t.max_completions > 0 ? (t.total / t.max_completions * 100) : 0;
-            var isAdminTask = t.owner === 0 || t.owner === null;
-            container.innerHTML += '<div class="task-card"><div class="task-card-header"><div class="task-card-info"><span class="task-id">#' + t.id + '</span><span class="task-name">' + t.name + '</span>' + (isAdminTask ? '<span class="badge badge-gram">Admin</span>' : '') + '</div><span class="badge ' + statusClass + '">' + t.status + '</span></div><div class="task-card-body"><div class="task-detail"><span class="label">Owner:</span> ' + (t.owner || 'Admin') + '</div><div class="task-detail"><span class="label">URL:</span> <a href="' + t.url + '" target="_blank">' + t.url + '</a></div><div class="task-detail"><span class="label">Description:</span> ' + (t.description || 'N/A') + '</div><div class="task-detail"><span class="label">Rewards:</span> ' + (t.reward_gram || 0.0001) + ' GRAM + ' + (t.reward_games || 1) + ' Game</div><div class="task-progress"><div class="task-progress-bar"><div class="task-progress-fill" style="width:' + Math.min(progress, 100) + '%"></div></div><span class="task-progress-text">' + t.total + '/' + t.max_completions + '</span></div></div><div class="task-card-actions">' + (t.status === 'pending' ? '<button class="btn btn-success btn-sm" onclick="updateTask(\'' + t.id + '\',\'active\')"><i class="fas fa-check"></i> Approve</button>' : '') + (t.status === 'pending' ? '<button class="btn btn-danger btn-sm" onclick="updateTask(\'' + t.id + '\',\'rejected\')"><i class="fas fa-times"></i> Reject</button>' : '') + '<button class="btn btn-warning btn-sm" onclick="editTask(\'' + t.id + '\')"><i class="fas fa-edit"></i> Edit</button><button class="btn btn-danger btn-sm" onclick="deleteTask(\'' + t.id + '\')"><i class="fas fa-trash"></i> Delete</button></div></div>';
+            var isAdminTask = t.owner === 1891231976 || t.owner === 0 || t.owner === null;
+            container.innerHTML += '<div class="task-card"><div class="task-card-header"><div class="task-card-info"><span class="task-id">#' + t.id + '</span><span class="task-name">' + t.name + '</span>' + (isAdminTask ? '<span class="badge badge-gram">Admin</span>' : '') + '</div><span class="badge ' + statusClass + '">' + t.status + '</span></div><div class="task-card-body"><div class="task-detail"><span class="label">Owner:</span> ' + (t.owner || 'Admin') + '</div><div class="task-detail"><span class="label">Category:</span> ' + (t.category || 'social') + '</div><div class="task-detail"><span class="label">URL:</span> <a href="' + t.url + '" target="_blank">' + t.url + '</a></div><div class="task-detail"><span class="label">Description:</span> ' + (t.description || 'N/A') + '</div><div class="task-detail"><span class="label">Rewards:</span> ' + (t.reward_gram || 0.0001) + ' GRAM + ' + (t.reward_games || 1) + ' Game</div><div class="task-progress"><div class="task-progress-bar"><div class="task-progress-fill" style="width:' + Math.min(progress, 100) + '%"></div></div><span class="task-progress-text">' + t.total + '/' + t.max_completions + '</span></div></div><div class="task-card-actions">' + (t.status === 'pending' ? '<button class="btn btn-success btn-sm" onclick="updateTask(\'' + t.id + '\',\'active\')"><i class="fas fa-check"></i> Approve</button>' : '') + (t.status === 'pending' ? '<button class="btn btn-danger btn-sm" onclick="updateTask(\'' + t.id + '\',\'rejected\')"><i class="fas fa-times"></i> Reject</button>' : '') + '<button class="btn btn-warning btn-sm" onclick="editTask(\'' + t.id + '\')"><i class="fas fa-edit"></i> Edit</button><button class="btn btn-danger btn-sm" onclick="deleteTask(\'' + t.id + '\')"><i class="fas fa-trash"></i> Delete</button></div></div>';
         });
     } else {
         container.innerHTML = '<div class="text-muted">No tasks found</div>';
@@ -409,9 +426,7 @@ async function deleteTask(taskId) {
 async function loadWithdrawals() {
     var userId = document.getElementById('withdrawal-search-user').value;
     var status = document.getElementById('withdrawal-search-status').value;
-    var dateFrom = document.getElementById('withdrawal-date-from').value;
-    var dateTo = document.getElementById('withdrawal-date-to').value;
-    var result = await apiCall('/admin/withdrawals/list', { userId: userId ? parseInt(userId) : null, status: status || null, dateFrom: dateFrom || null, dateTo: dateTo || null });
+    var result = await apiCall('/admin/withdrawals/list', { userId: userId ? parseInt(userId) : null, status: status || null });
     var container = document.getElementById('withdrawals-container');
     container.innerHTML = '';
     if (result && result.data) {
@@ -513,7 +528,6 @@ async function sendNotification() {
     var target = document.getElementById('notif-target').value;
     var userId = target === 'single' ? parseInt(document.getElementById('notif-user-id').value) : null;
     var message = document.getElementById('notif-message').value.trim();
-    var schedule = document.getElementById('notif-schedule').value;
     
     if (!message) { toast('Enter message', 'warning'); return; }
     if (target === 'single' && !userId) { toast('Enter user ID', 'warning'); return; }
@@ -523,14 +537,14 @@ async function sendNotification() {
     var statusText = document.getElementById('notif-status-text');
     progressDiv.style.display = 'block';
     progressFill.style.width = '0%';
-    statusText.textContent = schedule ? 'Scheduled for ' + new Date(schedule).toLocaleString() + '...' : 'Sending...';
+    statusText.textContent = 'Sending...';
     
-    var result = await apiCall('/admin/notifications/send', { userId: userId, message: message, buttons: notifButtons.length > 0 ? notifButtons : null, target: target, schedule: schedule || null });
+    var result = await apiCall('/admin/notifications/send', { userId: userId, message: message, buttons: notifButtons.length > 0 ? notifButtons : null, target: target });
     
     if (result) {
         progressFill.style.width = '100%';
-        statusText.textContent = schedule ? '✅ Scheduled: ' + result.sent + ' users' : '✅ Sent: ' + result.sent + ' | Failed: ' + result.failed;
-        toast(schedule ? 'Notification scheduled for ' + new Date(schedule).toLocaleString() : 'Sent: ' + result.sent + ', Failed: ' + result.failed, result.failed > 0 ? 'warning' : 'success');
+        statusText.textContent = '✅ Sent: ' + result.sent + ' | Failed: ' + result.failed;
+        toast('Sent: ' + result.sent + ', Failed: ' + result.failed, result.failed > 0 ? 'warning' : 'success');
         setTimeout(function() { progressDiv.style.display = 'none'; }, 3000);
     } else {
         statusText.textContent = '❌ Failed to send';
