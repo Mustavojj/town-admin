@@ -25,7 +25,6 @@
     </div>
 </div>
 
-<!-- Main App -->
 <div id="app" style="display:none;">
     <div class="container">
         <!-- Header -->
@@ -46,16 +45,16 @@
         </div>
 
         <!-- Tabs -->
-        <div class="tabs" id="tabs">
-            <button class="tab-btn active" data-tab="users"><i class="fas fa-users"></i> Users</button>
-            <button class="tab-btn" data-tab="tasks"><i class="fas fa-tasks"></i> Tasks</button>
-            <button class="tab-btn" data-tab="withdrawals"><i class="fas fa-arrow-up-right-from-square"></i> Withdrawals</button>
-            <button class="tab-btn" data-tab="promo"><i class="fas fa-ticket"></i> Promo Codes</button>
-            <button class="tab-btn" data-tab="notifications"><i class="fas fa-bell"></i> Notifications</button>
+        <div class="admin-tabs" id="admin-tabs">
+            <button class="admin-tab-btn active" data-tab="users"><i class="fas fa-users"></i> Users</button>
+            <button class="admin-tab-btn" data-tab="tasks"><i class="fas fa-tasks"></i> Tasks</button>
+            <button class="admin-tab-btn" data-tab="withdrawals"><i class="fas fa-arrow-up-right-from-square"></i> Withdrawals</button>
+            <button class="admin-tab-btn" data-tab="promo"><i class="fas fa-ticket"></i> Promo Codes</button>
+            <button class="admin-tab-btn" data-tab="notifications"><i class="fas fa-bell"></i> Notifications</button>
         </div>
 
         <!-- USERS TAB -->
-        <div class="tab-content active" id="tab-users">
+        <div class="admin-tab-content active" id="tab-users">
             <div class="panel-card">
                 <div class="card-title"><i class="fas fa-search"></i> Search User</div>
                 <div class="search-row">
@@ -67,7 +66,7 @@
         </div>
 
         <!-- TASKS TAB -->
-        <div class="tab-content" id="tab-tasks">
+        <div class="admin-tab-content" id="tab-tasks">
             <div class="panel-card">
                 <div class="card-title"><i class="fas fa-filter"></i> Filter Tasks</div>
                 <div class="search-row">
@@ -86,7 +85,7 @@
         </div>
 
         <!-- WITHDRAWALS TAB -->
-        <div class="tab-content" id="tab-withdrawals">
+        <div class="admin-tab-content" id="tab-withdrawals">
             <div class="panel-card">
                 <div class="card-title"><i class="fas fa-filter"></i> Filter Withdrawals</div>
                 <div class="search-row">
@@ -104,7 +103,7 @@
         </div>
 
         <!-- PROMO TAB -->
-        <div class="tab-content" id="tab-promo">
+        <div class="admin-tab-content" id="tab-promo">
             <div class="panel-card">
                 <div class="card-title"><i class="fas fa-plus-circle"></i> Create Promo Code</div>
                 <div class="grid-2">
@@ -126,7 +125,7 @@
         </div>
 
         <!-- NOTIFICATIONS TAB -->
-        <div class="tab-content" id="tab-notifications">
+        <div class="admin-tab-content" id="tab-notifications">
             <div class="panel-card">
                 <div class="card-title"><i class="fas fa-bell"></i> Send Notification</div>
                 <div class="grid-2">
@@ -235,16 +234,18 @@ function initApp() {
 }
 
 function setupTabs() {
-    document.querySelectorAll('.tab-btn').forEach(btn => {
-        btn.addEventListener('click', () => {
-            document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
-            document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
-            btn.classList.add('active');
-            document.getElementById('tab-' + btn.dataset.tab).classList.add('active');
-            if (btn.dataset.tab === 'users') loadUsers();
-            if (btn.dataset.tab === 'tasks') loadTasks();
-            if (btn.dataset.tab === 'withdrawals') loadWithdrawals();
-            if (btn.dataset.tab === 'promo') loadPromoCodes();
+    document.querySelectorAll('#admin-tabs .admin-tab-btn').forEach(btn => {
+        btn.addEventListener('click', function() {
+            document.querySelectorAll('#admin-tabs .admin-tab-btn').forEach(b => b.classList.remove('active'));
+            document.querySelectorAll('.admin-tab-content').forEach(c => c.classList.remove('active'));
+            this.classList.add('active');
+            const tabId = this.dataset.tab;
+            const content = document.getElementById('tab-' + tabId);
+            if (content) content.classList.add('active');
+            if (tabId === 'users') loadUsers();
+            if (tabId === 'tasks') loadTasks();
+            if (tabId === 'withdrawals') loadWithdrawals();
+            if (tabId === 'promo') loadPromoCodes();
         });
     });
 }
