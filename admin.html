@@ -10,7 +10,6 @@
 </head>
 <body>
 
-<!-- Login Screen -->
 <div id="login-screen" class="login-screen">
     <div class="login-container">
         <div class="login-logo">
@@ -48,16 +47,16 @@
         </div>
 
         <!-- Tabs -->
-        <div class="admin-tabs" id="admin-tabs">
-            <button class="admin-tab-btn active" data-tab="users"><i class="fas fa-users"></i> Users</button>
-            <button class="admin-tab-btn" data-tab="tasks"><i class="fas fa-tasks"></i> Tasks</button>
-            <button class="admin-tab-btn" data-tab="withdrawals"><i class="fas fa-arrow-up-right-from-square"></i> Withdrawals</button>
-            <button class="admin-tab-btn" data-tab="promo"><i class="fas fa-ticket"></i> Promo Codes</button>
-            <button class="admin-tab-btn" data-tab="notifications"><i class="fas fa-bell"></i> Notifications</button>
+        <div class="tabs" id="tabs">
+            <div class="tab active" data-tab="users"><i class="fas fa-users"></i> Users</div>
+            <div class="tab" data-tab="tasks"><i class="fas fa-tasks"></i> Tasks</div>
+            <div class="tab" data-tab="withdrawals"><i class="fas fa-arrow-up-right-from-square"></i> Withdrawals</div>
+            <div class="tab" data-tab="promo"><i class="fas fa-ticket"></i> Promo Codes</div>
+            <div class="tab" data-tab="notifications"><i class="fas fa-bell"></i> Notifications</div>
         </div>
 
         <!-- USERS TAB -->
-        <div class="admin-tab-content active" id="tab-users">
+        <div class="tab-content active" id="tab-users">
             <div class="panel-card">
                 <div class="card-title"><i class="fas fa-search"></i> Search User</div>
                 <div class="search-row">
@@ -69,7 +68,7 @@
         </div>
 
         <!-- TASKS TAB -->
-        <div class="admin-tab-content" id="tab-tasks">
+        <div class="tab-content" id="tab-tasks">
             <div class="panel-card">
                 <div class="card-title"><i class="fas fa-filter"></i> Filter Tasks</div>
                 <div class="search-row">
@@ -93,7 +92,7 @@
         </div>
 
         <!-- WITHDRAWALS TAB -->
-        <div class="admin-tab-content" id="tab-withdrawals">
+        <div class="tab-content" id="tab-withdrawals">
             <div class="panel-card">
                 <div class="card-title"><i class="fas fa-filter"></i> Filter Withdrawals</div>
                 <div class="search-row">
@@ -113,7 +112,7 @@
         </div>
 
         <!-- PROMO TAB -->
-        <div class="admin-tab-content" id="tab-promo">
+        <div class="tab-content" id="tab-promo">
             <div class="panel-card">
                 <div class="card-title"><i class="fas fa-plus-circle"></i> Create Promo Code</div>
                 <div class="grid-2">
@@ -135,7 +134,7 @@
         </div>
 
         <!-- NOTIFICATIONS TAB -->
-        <div class="admin-tab-content" id="tab-notifications">
+        <div class="tab-content" id="tab-notifications">
             <div class="panel-card">
                 <div class="card-title"><i class="fas fa-bell"></i> Send Notification</div>
                 <div class="grid-2">
@@ -192,6 +191,27 @@ let notifButtons = [];
 let loginAttempts = 0;
 let isLocked = false;
 
+// ===== TABS =====
+document.addEventListener('DOMContentLoaded', function() {
+    var tabs = document.querySelectorAll('.tab');
+    var contents = document.querySelectorAll('.tab-content');
+    
+    tabs.forEach(function(tab) {
+        tab.addEventListener('click', function(e) {
+            tabs.forEach(function(t) { t.classList.remove('active'); });
+            contents.forEach(function(c) { c.classList.remove('active'); });
+            this.classList.add('active');
+            var tabId = this.getAttribute('data-tab');
+            var content = document.getElementById('tab-' + tabId);
+            if (content) content.classList.add('active');
+            if (tabId === 'users') loadUsers();
+            if (tabId === 'tasks') loadTasks();
+            if (tabId === 'withdrawals') loadWithdrawals();
+            if (tabId === 'promo') loadPromoCodes();
+        });
+    });
+});
+
 function login() {
     if (isLocked) {
         document.getElementById('login-error').textContent = 'Too many failed attempts. Try again later.';
@@ -204,17 +224,15 @@ function login() {
         document.getElementById('login-screen').style.display = 'none';
         document.getElementById('app').style.display = 'block';
         initApp();
-        console.log('[Admin] Login successful');
     } else {
         loginAttempts++;
-        error.textContent = `Wrong password! (Attempt ${loginAttempts}/5)`;
+        error.textContent = 'Wrong password! (Attempt ' + loginAttempts + '/5)';
         input.value = '';
         input.focus();
-        console.log(`[Admin] Failed login attempt ${loginAttempts}`);
         if (loginAttempts >= 5) {
             isLocked = true;
             error.textContent = 'Too many failed attempts. Locked for 5 minutes.';
-            setTimeout(() => {
+            setTimeout(function() {
                 isLocked = false;
                 loginAttempts = 0;
                 error.textContent = '';
@@ -224,17 +242,17 @@ function login() {
 }
 
 function changePassword() {
-    const current = prompt('Enter current password:');
+    var current = prompt('Enter current password:');
     if (current !== adminPassword) {
         toast('Wrong current password!', 'error');
         return;
     }
-    const newPass = prompt('Enter new password:');
+    var newPass = prompt('Enter new password:');
     if (!newPass || newPass.length < 4) {
         toast('Password must be at least 4 characters', 'error');
         return;
     }
-    const confirmPass = prompt('Confirm new password:');
+    var confirmPass = prompt('Confirm new password:');
     if (newPass !== confirmPass) {
         toast('Passwords do not match!', 'error');
         return;
@@ -242,7 +260,6 @@ function changePassword() {
     adminPassword = newPass;
     localStorage.setItem('admin_password', adminPassword);
     toast('Password changed successfully!', 'success');
-    console.log('[Admin] Password changed');
 }
 
 function logout() {
@@ -250,212 +267,112 @@ function logout() {
     document.getElementById('login-screen').style.display = 'flex';
     document.getElementById('login-password').value = '';
     document.getElementById('login-error').textContent = '';
-    console.log('[Admin] Logged out');
 }
 
-function toast(message, type = 'info') {
-    const container = document.getElementById('toast-container');
-    const el = document.createElement('div');
-    el.className = `toast ${type}`;
+function toast(message, type) {
+    type = type || 'info';
+    var container = document.getElementById('toast-container');
+    var el = document.createElement('div');
+    el.className = 'toast ' + type;
     el.textContent = message;
     container.appendChild(el);
-    setTimeout(() => { el.style.opacity = '0'; setTimeout(() => el.remove(), 300); }, 3500);
+    setTimeout(function() {
+        el.style.opacity = '0';
+        setTimeout(function() { el.remove(); }, 300);
+    }, 3500);
 }
 
-async function apiCall(endpoint, data = {}) {
+async function apiCall(endpoint, data) {
+    data = data || {};
     try {
-        const response = await fetch(`${API_URL}${endpoint}`, {
+        var response = await fetch(API_URL + endpoint, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(data)
         });
-        const result = await response.json();
+        var result = await response.json();
         if (!result.success) {
             toast(result.error || 'Request failed', 'error');
-            console.error(`[API] ${endpoint} failed:`, result.error);
             return null;
         }
         return result;
     } catch (e) {
         toast('Network error: ' + e.message, 'error');
-        console.error(`[API] ${endpoint} error:`, e);
         return null;
     }
 }
 
-// ===== INIT =====
 function initApp() {
     loadStats();
     loadUsers();
     loadTasks();
     loadWithdrawals();
     loadPromoCodes();
-    setupTabs();
     setupEventListeners();
     setInterval(loadStats, 30000);
-    console.log('[Admin] App initialized');
-}
-
-function setupTabs() {
-    document.querySelectorAll('#admin-tabs .admin-tab-btn').forEach(btn => {
-        btn.addEventListener('click', function(e) {
-            e.preventDefault();
-            console.log('[Admin] Tab clicked:', this.dataset.tab);
-            document.querySelectorAll('#admin-tabs .admin-tab-btn').forEach(b => b.classList.remove('active'));
-            document.querySelectorAll('.admin-tab-content').forEach(c => c.classList.remove('active'));
-            this.classList.add('active');
-            const tabId = this.dataset.tab;
-            const content = document.getElementById('tab-' + tabId);
-            if (content) {
-                content.classList.add('active');
-                console.log('[Admin] Tab activated:', tabId);
-            } else {
-                console.error('[Admin] Tab content not found:', tabId);
-            }
-            if (tabId === 'users') loadUsers();
-            if (tabId === 'tasks') loadTasks();
-            if (tabId === 'withdrawals') loadWithdrawals();
-            if (tabId === 'promo') loadPromoCodes();
-        });
-    });
-    console.log('[Admin] Tabs setup complete');
 }
 
 function setupEventListeners() {
-    document.getElementById('user-search-btn')?.addEventListener('click', searchUser);
-    document.getElementById('task-search-btn')?.addEventListener('click', loadTasks);
-    document.getElementById('withdrawal-search-btn')?.addEventListener('click', loadWithdrawals);
-    document.getElementById('promo-generate-btn')?.addEventListener('click', generatePromo);
-    document.getElementById('promo-create-btn')?.addEventListener('click', createPromo);
-    document.getElementById('notif-target')?.addEventListener('change', toggleNotifUser);
-    document.getElementById('notif-add-btn')?.addEventListener('click', addNotifButton);
-    document.getElementById('notif-send-btn')?.addEventListener('click', sendNotification);
-    document.getElementById('notif-message')?.addEventListener('input', updatePreview);
-    console.log('[Admin] Event listeners setup complete');
+    document.getElementById('user-search-btn').addEventListener('click', loadUsers);
+    document.getElementById('task-search-btn').addEventListener('click', loadTasks);
+    document.getElementById('withdrawal-search-btn').addEventListener('click', loadWithdrawals);
+    document.getElementById('promo-generate-btn').addEventListener('click', generatePromo);
+    document.getElementById('promo-create-btn').addEventListener('click', createPromo);
+    document.getElementById('notif-target').addEventListener('change', toggleNotifUser);
+    document.getElementById('notif-add-btn').addEventListener('click', addNotifButton);
+    document.getElementById('notif-send-btn').addEventListener('click', sendNotification);
+    document.getElementById('notif-message').addEventListener('input', updatePreview);
 }
 
-// ===== STATS =====
 async function loadStats() {
-    const result = await apiCall('/admin/stats');
+    var result = await apiCall('/admin/stats');
     if (result) {
         document.getElementById('stat-users').textContent = result.data.totalUsers;
-        document.getElementById('stat-withdrawals').textContent = result.data.totalWithdrawals?.toFixed(4) || '0';
+        document.getElementById('stat-withdrawals').textContent = result.data.totalWithdrawals.toFixed(4) || '0';
     }
 }
 
-// ===== USERS =====
-async function searchUser() {
-    const query = document.getElementById('user-search-input').value.trim();
+async function loadUsers() {
+    var query = document.getElementById('user-search-input').value.trim();
     if (!query) { toast('Enter user ID or username', 'warning'); return; }
-    const isNumber = !isNaN(query);
-    const result = await apiCall('/admin/users/search', { userId: isNumber ? parseInt(query) : query });
-    const container = document.getElementById('user-result');
+    var isNumber = !isNaN(query);
+    var result = await apiCall('/admin/users/search', { userId: isNumber ? parseInt(query) : query });
+    var container = document.getElementById('user-result');
     if (result && result.data) {
-        const u = result.data;
-        const status = u.state === 'ban' ? 'Banned' : 'Active';
-        const statusClass = u.state === 'ban' ? 'badge-rejected' : 'badge-active';
-        container.innerHTML = `
-            <div class="user-card">
-                <div class="user-card-header">
-                    <span class="user-id">#${u.id}</span>
-                    <span class="badge ${statusClass}">${status}</span>
-                </div>
-                <div class="user-card-grid">
-                    <div class="user-card-item">
-                        <span class="label">Balance (GRAM)</span>
-                        <span class="value">${u.gram_balance?.toFixed(6) || '0'}</span>
-                    </div>
-                    <div class="user-card-item">
-                        <span class="label">Balance (Games)</span>
-                        <span class="value">${u.games_balance || 0}</span>
-                    </div>
-                    <div class="user-card-item">
-                        <span class="label">Referrals</span>
-                        <span class="value">${u.total_referrals || 0}</span>
-                    </div>
-                    <div class="user-card-item">
-                        <span class="label">Active Referrals</span>
-                        <span class="value">${u.active_referrals || 0}</span>
-                    </div>
-                    <div class="user-card-item">
-                        <span class="label">Total Earnings (GRAM)</span>
-                        <span class="value">${u.total_earnings?.gram?.toFixed(6) || '0'}</span>
-                    </div>
-                    <div class="user-card-item">
-                        <span class="label">Total Earnings (Games)</span>
-                        <span class="value">${u.total_earnings?.games || 0}</span>
-                    </div>
-                </div>
-                <div class="user-card-actions">
-                    ${u.state === 'active' ? `<button class="btn btn-danger btn-sm" onclick="banUser(${u.id})"><i class="fas fa-ban"></i> Ban</button>` : ''}
-                    ${u.state === 'ban' ? `<button class="btn btn-success btn-sm" onclick="unbanUser(${u.id})"><i class="fas fa-check"></i> Unban</button>` : ''}
-                </div>
-            </div>
-        `;
-        console.log('[Users] Found user:', u.id);
+        var u = result.data;
+        var status = u.state === 'ban' ? 'Banned' : 'Active';
+        var statusClass = u.state === 'ban' ? 'badge-rejected' : 'badge-active';
+        container.innerHTML = '<div class="user-card"><div class="user-card-header"><span class="user-id">#' + u.id + '</span><span class="badge ' + statusClass + '">' + status + '</span></div><div class="user-card-grid"><div class="user-card-item"><span class="label">Balance (GRAM)</span><span class="value">' + (u.gram_balance || '0') + '</span></div><div class="user-card-item"><span class="label">Balance (Games)</span><span class="value">' + (u.games_balance || '0') + '</span></div><div class="user-card-item"><span class="label">Referrals</span><span class="value">' + (u.total_referrals || '0') + '</span></div><div class="user-card-item"><span class="label">Active Referrals</span><span class="value">' + (u.active_referrals || '0') + '</span></div><div class="user-card-item"><span class="label">Total Earnings (GRAM)</span><span class="value">' + (u.total_earnings?.gram || '0') + '</span></div><div class="user-card-item"><span class="label">Total Earnings (Games)</span><span class="value">' + (u.total_earnings?.games || '0') + '</span></div></div><div class="user-card-actions">' + (u.state === 'active' ? '<button class="btn btn-danger btn-sm" onclick="banUser(' + u.id + ')"><i class="fas fa-ban"></i> Ban</button>' : '') + (u.state === 'ban' ? '<button class="btn btn-success btn-sm" onclick="unbanUser(' + u.id + ')"><i class="fas fa-check"></i> Unban</button>' : '') + '</div></div>';
     } else {
         container.innerHTML = '<div class="text-muted mt-8">User not found</div>';
-        console.log('[Users] User not found:', query);
     }
 }
 
 async function banUser(userId) {
-    if (!confirm(`Ban user ${userId}?`)) return;
-    const result = await apiCall('/admin/users/ban', { userId });
-    if (result) { toast('User banned', 'success'); searchUser(); console.log('[Users] Banned:', userId); }
+    if (!confirm('Ban user ' + userId + '?')) return;
+    var result = await apiCall('/admin/users/ban', { userId: userId });
+    if (result) { toast('User banned', 'success'); loadUsers(); }
 }
 
 async function unbanUser(userId) {
-    if (!confirm(`Unban user ${userId}?`)) return;
-    const result = await apiCall('/admin/users/unban', { userId });
-    if (result) { toast('User unbanned', 'success'); searchUser(); console.log('[Users] Unbanned:', userId); }
+    if (!confirm('Unban user ' + userId + '?')) return;
+    var result = await apiCall('/admin/users/unban', { userId: userId });
+    if (result) { toast('User unbanned', 'success'); loadUsers(); }
 }
 
-// ===== TASKS =====
 async function loadTasks() {
-    const owner = document.getElementById('task-search-owner')?.value;
-    const status = document.getElementById('task-search-status')?.value;
-    const creator = document.getElementById('task-search-creator')?.value;
-    const result = await apiCall('/admin/tasks/list', { 
-        owner: owner ? parseInt(owner) : null, 
-        status: status || null,
-        creator: creator || null
-    });
-    const container = document.getElementById('tasks-container');
+    var owner = document.getElementById('task-search-owner').value;
+    var status = document.getElementById('task-search-status').value;
+    var creator = document.getElementById('task-search-creator').value;
+    var result = await apiCall('/admin/tasks/list', { owner: owner ? parseInt(owner) : null, status: status || null, creator: creator || null });
+    var container = document.getElementById('tasks-container');
     container.innerHTML = '';
     if (result && result.data) {
-        result.data.forEach(t => {
-            const statusClass = t.status === 'active' ? 'badge-active' : t.status === 'pending' ? 'badge-pending' : t.status === 'completed' ? 'badge-completed' : 'badge-rejected';
-            const progress = t.max_completions > 0 ? (t.total / t.max_completions * 100) : 0;
-            const isAdminTask = t.owner === 0 || t.owner === null;
-            container.innerHTML += `
-                <div class="task-card">
-                    <div class="task-card-header">
-                        <div class="task-card-info">
-                            <span class="task-id">#${t.id}</span>
-                            <span class="task-name">${t.name}</span>
-                            ${isAdminTask ? '<span class="badge badge-gram">Admin</span>' : ''}
-                        </div>
-                        <span class="badge ${statusClass}">${t.status}</span>
-                    </div>
-                    <div class="task-card-body">
-                        <div class="task-detail"><span class="label">Owner:</span> ${t.owner || 'Admin'}</div>
-                        <div class="task-detail"><span class="label">URL:</span> <a href="${t.url}" target="_blank">${t.url}</a></div>
-                        <div class="task-detail"><span class="label">Description:</span> ${t.description || 'N/A'}</div>
-                        <div class="task-detail"><span class="label">Rewards:</span> ${t.reward_gram || 0.0001} GRAM + ${t.reward_games || 1} Game</div>
-                        <div class="task-progress">
-                            <div class="task-progress-bar"><div class="task-progress-fill" style="width:${Math.min(progress, 100)}%"></div></div>
-                            <span class="task-progress-text">${t.total}/${t.max_completions}</span>
-                        </div>
-                    </div>
-                    <div class="task-card-actions">
-                        ${t.status === 'pending' ? `<button class="btn btn-success btn-sm" onclick="updateTask('${t.id}','active')"><i class="fas fa-check"></i> Approve</button>` : ''}
-                        ${t.status === 'pending' ? `<button class="btn btn-danger btn-sm" onclick="updateTask('${t.id}','rejected')"><i class="fas fa-times"></i> Reject</button>` : ''}
-                        <button class="btn btn-warning btn-sm" onclick="editTask('${t.id}')"><i class="fas fa-edit"></i> Edit</button>
-                        <button class="btn btn-danger btn-sm" onclick="deleteTask('${t.id}')"><i class="fas fa-trash"></i> Delete</button>
-                    </div>
-                </div>
-            `;
+        result.data.forEach(function(t) {
+            var statusClass = t.status === 'active' ? 'badge-active' : t.status === 'pending' ? 'badge-pending' : t.status === 'completed' ? 'badge-completed' : 'badge-rejected';
+            var progress = t.max_completions > 0 ? (t.total / t.max_completions * 100) : 0;
+            var isAdminTask = t.owner === 0 || t.owner === null;
+            container.innerHTML += '<div class="task-card"><div class="task-card-header"><div class="task-card-info"><span class="task-id">#' + t.id + '</span><span class="task-name">' + t.name + '</span>' + (isAdminTask ? '<span class="badge badge-gram">Admin</span>' : '') + '</div><span class="badge ' + statusClass + '">' + t.status + '</span></div><div class="task-card-body"><div class="task-detail"><span class="label">Owner:</span> ' + (t.owner || 'Admin') + '</div><div class="task-detail"><span class="label">URL:</span> <a href="' + t.url + '" target="_blank">' + t.url + '</a></div><div class="task-detail"><span class="label">Description:</span> ' + (t.description || 'N/A') + '</div><div class="task-detail"><span class="label">Rewards:</span> ' + (t.reward_gram || 0.0001) + ' GRAM + ' + (t.reward_games || 1) + ' Game</div><div class="task-progress"><div class="task-progress-bar"><div class="task-progress-fill" style="width:' + Math.min(progress, 100) + '%"></div></div><span class="task-progress-text">' + t.total + '/' + t.max_completions + '</span></div></div><div class="task-card-actions">' + (t.status === 'pending' ? '<button class="btn btn-success btn-sm" onclick="updateTask(\'' + t.id + '\',\'active\')"><i class="fas fa-check"></i> Approve</button>' : '') + (t.status === 'pending' ? '<button class="btn btn-danger btn-sm" onclick="updateTask(\'' + t.id + '\',\'rejected\')"><i class="fas fa-times"></i> Reject</button>' : '') + '<button class="btn btn-warning btn-sm" onclick="editTask(\'' + t.id + '\')"><i class="fas fa-edit"></i> Edit</button><button class="btn btn-danger btn-sm" onclick="deleteTask(\'' + t.id + '\')"><i class="fas fa-trash"></i> Delete</button></div></div>';
         });
     } else {
         container.innerHTML = '<div class="text-muted">No tasks found</div>';
@@ -463,75 +380,46 @@ async function loadTasks() {
 }
 
 async function editTask(taskId) {
-    const result = await apiCall('/admin/tasks/get', { taskId });
+    var result = await apiCall('/admin/tasks/get', { taskId: taskId });
     if (!result || !result.data) return;
-    const t = result.data;
-    const name = prompt('Task Name:', t.name);
+    var t = result.data;
+    var name = prompt('Task Name:', t.name);
     if (name === null) return;
-    const url = prompt('Task URL:', t.url);
+    var url = prompt('Task URL:', t.url);
     if (url === null) return;
-    const rewardGram = prompt('Reward GRAM:', t.reward_gram || 0.0001);
+    var rewardGram = prompt('Reward GRAM:', t.reward_gram || 0.0001);
     if (rewardGram === null) return;
-    const rewardGames = prompt('Reward Games:', t.reward_games || 1);
+    var rewardGames = prompt('Reward Games:', t.reward_games || 1);
     if (rewardGames === null) return;
-    const result2 = await apiCall('/admin/tasks/update', { 
-        taskId, 
-        name, 
-        url, 
-        rewardGram: parseFloat(rewardGram), 
-        rewardGames: parseInt(rewardGames) 
-    });
+    var result2 = await apiCall('/admin/tasks/update', { taskId: taskId, name: name, url: url, rewardGram: parseFloat(rewardGram), rewardGames: parseInt(rewardGames) });
     if (result2) { toast('Task updated!', 'success'); loadTasks(); }
 }
 
 async function updateTask(taskId, status) {
-    const result = await apiCall('/admin/tasks/update-status', { taskId, status });
-    if (result) { toast(`Task ${status}`, 'success'); loadTasks(); console.log('[Tasks] Updated:', taskId, status); }
+    var result = await apiCall('/admin/tasks/update-status', { taskId: taskId, status: status });
+    if (result) { toast('Task ' + status, 'success'); loadTasks(); }
 }
 
 async function deleteTask(taskId) {
-    if (!confirm(`Delete task ${taskId}?`)) return;
-    const result = await apiCall('/admin/tasks/delete', { taskId });
-    if (result) { toast('Task deleted', 'success'); loadTasks(); console.log('[Tasks] Deleted:', taskId); }
+    if (!confirm('Delete task ' + taskId + '?')) return;
+    var result = await apiCall('/admin/tasks/delete', { taskId: taskId });
+    if (result) { toast('Task deleted', 'success'); loadTasks(); }
 }
 
-// ===== WITHDRAWALS =====
 async function loadWithdrawals() {
-    const userId = document.getElementById('withdrawal-search-user')?.value;
-    const status = document.getElementById('withdrawal-search-status')?.value;
-    const dateFrom = document.getElementById('withdrawal-date-from')?.value;
-    const dateTo = document.getElementById('withdrawal-date-to')?.value;
-    const result = await apiCall('/admin/withdrawals/list', { 
-        userId: userId ? parseInt(userId) : null, 
-        status: status || null,
-        dateFrom: dateFrom || null,
-        dateTo: dateTo || null
-    });
-    const container = document.getElementById('withdrawals-container');
+    var userId = document.getElementById('withdrawal-search-user').value;
+    var status = document.getElementById('withdrawal-search-status').value;
+    var dateFrom = document.getElementById('withdrawal-date-from').value;
+    var dateTo = document.getElementById('withdrawal-date-to').value;
+    var result = await apiCall('/admin/withdrawals/list', { userId: userId ? parseInt(userId) : null, status: status || null, dateFrom: dateFrom || null, dateTo: dateTo || null });
+    var container = document.getElementById('withdrawals-container');
     container.innerHTML = '';
     if (result && result.data) {
-        result.data.forEach(w => {
-            const statusClass = w.status === 'completed' ? 'badge-completed' : w.status === 'pending' ? 'badge-pending' : 'badge-rejected';
-            const date = new Date(w.timestamp);
-            const dateStr = `${String(date.getDate()).padStart(2,'0')}/${String(date.getMonth()+1).padStart(2,'0')}/${date.getFullYear()} ${String(date.getHours()).padStart(2,'0')}:${String(date.getMinutes()).padStart(2,'0')} ${date.getHours() >= 12 ? 'PM' : 'AM'}`;
-            container.innerHTML += `
-                <div class="withdrawal-card ${w.status}">
-                    <div class="withdrawal-card-header">
-                        <span class="withdrawal-id">#${w.id}</span>
-                        <span class="withdrawal-user">User: ${w.user_id}</span>
-                        <span class="badge ${statusClass}">${w.status}</span>
-                    </div>
-                    <div class="withdrawal-card-body">
-                        <div class="withdrawal-amount">${w.amount?.toFixed(6) || '0'} GRAM</div>
-                        <div class="withdrawal-date">${dateStr}</div>
-                    </div>
-                    <div class="withdrawal-card-actions">
-                        ${w.status === 'pending' ? `<button class="btn btn-success btn-sm" onclick="updateWithdrawal('${w.id}','completed')"><i class="fas fa-check"></i> Approve</button>` : ''}
-                        ${w.status === 'pending' ? `<button class="btn btn-danger btn-sm" onclick="updateWithdrawal('${w.id}','rejected')"><i class="fas fa-times"></i> Reject</button>` : ''}
-                        <button class="btn btn-danger btn-sm" onclick="deleteWithdrawal('${w.id}')"><i class="fas fa-trash"></i> Delete</button>
-                    </div>
-                </div>
-            `;
+        result.data.forEach(function(w) {
+            var statusClass = w.status === 'completed' ? 'badge-completed' : w.status === 'pending' ? 'badge-pending' : 'badge-rejected';
+            var date = new Date(w.timestamp);
+            var dateStr = String(date.getDate()).padStart(2,'0') + '/' + String(date.getMonth()+1).padStart(2,'0') + '/' + date.getFullYear() + ' ' + String(date.getHours()).padStart(2,'0') + ':' + String(date.getMinutes()).padStart(2,'0') + ' ' + (date.getHours() >= 12 ? 'PM' : 'AM');
+            container.innerHTML += '<div class="withdrawal-card ' + w.status + '"><div class="withdrawal-card-header"><span class="withdrawal-id">#' + w.id + '</span><span class="withdrawal-user">User: ' + w.user_id + '</span><span class="badge ' + statusClass + '">' + w.status + '</span></div><div class="withdrawal-card-body"><div class="withdrawal-amount">' + (w.amount || '0') + ' GRAM</div><div class="withdrawal-date">' + dateStr + '</div></div><div class="withdrawal-card-actions">' + (w.status === 'pending' ? '<button class="btn btn-success btn-sm" onclick="updateWithdrawal(\'' + w.id + '\',\'completed\')"><i class="fas fa-check"></i> Approve</button>' : '') + (w.status === 'pending' ? '<button class="btn btn-danger btn-sm" onclick="updateWithdrawal(\'' + w.id + '\',\'rejected\')"><i class="fas fa-times"></i> Reject</button>' : '') + '<button class="btn btn-danger btn-sm" onclick="deleteWithdrawal(\'' + w.id + '\')"><i class="fas fa-trash"></i> Delete</button></div></div>';
         });
     } else {
         container.innerHTML = '<div class="text-muted">No withdrawals found</div>';
@@ -539,55 +427,40 @@ async function loadWithdrawals() {
 }
 
 async function updateWithdrawal(transactionId, status) {
-    const result = await apiCall('/admin/withdrawals/update-status', { transactionId, status });
-    if (result) { toast(`Withdrawal ${status}`, 'success'); loadWithdrawals(); console.log('[Withdrawals] Updated:', transactionId, status); }
+    var result = await apiCall('/admin/withdrawals/update-status', { transactionId: transactionId, status: status });
+    if (result) { toast('Withdrawal ' + status, 'success'); loadWithdrawals(); }
 }
 
 async function deleteWithdrawal(transactionId) {
-    if (!confirm(`Delete withdrawal ${transactionId}?`)) return;
-    const result = await apiCall('/admin/withdrawals/delete', { transactionId });
-    if (result) { toast('Withdrawal deleted', 'success'); loadWithdrawals(); console.log('[Withdrawals] Deleted:', transactionId); }
+    if (!confirm('Delete withdrawal ' + transactionId + '?')) return;
+    var result = await apiCall('/admin/withdrawals/delete', { transactionId: transactionId });
+    if (result) { toast('Withdrawal deleted', 'success'); loadWithdrawals(); }
 }
 
-// ===== PROMO =====
 function generatePromo() {
-    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
-    let code = '';
-    for (let i = 0; i < 8; i++) code += chars[Math.floor(Math.random() * chars.length)];
+    var chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+    var code = '';
+    for (var i = 0; i < 8; i++) code += chars[Math.floor(Math.random() * chars.length)];
     document.getElementById('promo-code').value = code;
-    console.log('[Promo] Generated:', code);
 }
 
 async function createPromo() {
-    const code = document.getElementById('promo-code').value.trim().toUpperCase();
-    const reward = parseFloat(document.getElementById('promo-reward').value) || 0.001;
-    const rewardType = document.getElementById('promo-type').value;
-    const maxUses = parseInt(document.getElementById('promo-max-uses').value) || 999999;
+    var code = document.getElementById('promo-code').value.trim().toUpperCase();
+    var reward = parseFloat(document.getElementById('promo-reward').value) || 0.001;
+    var rewardType = document.getElementById('promo-type').value;
+    var maxUses = parseInt(document.getElementById('promo-max-uses').value) || 999999;
     if (!code) { toast('Enter promo code', 'warning'); return; }
-    const result = await apiCall('/admin/promo/create', { code, reward, rewardType, maxUses });
-    if (result) { toast('Promo created!', 'success'); document.getElementById('promo-code').value = ''; loadPromoCodes(); console.log('[Promo] Created:', code); }
+    var result = await apiCall('/admin/promo/create', { code: code, reward: reward, rewardType: rewardType, maxUses: maxUses });
+    if (result) { toast('Promo created!', 'success'); document.getElementById('promo-code').value = ''; loadPromoCodes(); }
 }
 
 async function loadPromoCodes() {
-    const result = await apiCall('/admin/promo/list');
-    const container = document.getElementById('promo-container');
+    var result = await apiCall('/admin/promo/list');
+    var container = document.getElementById('promo-container');
     container.innerHTML = '';
     if (result && result.data) {
-        result.data.forEach(p => {
-            container.innerHTML += `
-                <div class="promo-card">
-                    <div class="promo-card-header">
-                        <span class="promo-code">${p.code}</span>
-                        <button class="btn btn-outline btn-sm" onclick="copyText('${p.code}')"><i class="fas fa-copy"></i></button>
-                        <button class="btn btn-danger btn-sm" onclick="deletePromo('${p.code}')"><i class="fas fa-trash"></i></button>
-                    </div>
-                    <div class="promo-card-body">
-                        <div class="promo-detail"><span class="label">Reward:</span> ${p.reward}</div>
-                        <div class="promo-detail"><span class="label">Type:</span> <span class="badge ${p.reward_type === 'gram' ? 'badge-gram' : 'badge-games'}">${p.reward_type}</span></div>
-                        <div class="promo-detail"><span class="label">Used:</span> ${p.total || 0} / ${p.max_uses || '∞'}</div>
-                    </div>
-                </div>
-            `;
+        result.data.forEach(function(p) {
+            container.innerHTML += '<div class="promo-card"><div class="promo-card-header"><span class="promo-code">' + p.code + '</span><button class="btn btn-outline btn-sm" onclick="copyText(\'' + p.code + '\')"><i class="fas fa-copy"></i></button><button class="btn btn-danger btn-sm" onclick="deletePromo(\'' + p.code + '\')"><i class="fas fa-trash"></i></button></div><div class="promo-card-body"><div class="promo-detail"><span class="label">Reward:</span> ' + p.reward + '</div><div class="promo-detail"><span class="label">Type:</span> <span class="badge ' + (p.reward_type === 'gram' ? 'badge-gram' : 'badge-games') + '">' + p.reward_type + '</span></div><div class="promo-detail"><span class="label">Used:</span> ' + (p.total || 0) + ' / ' + (p.max_uses || '∞') + '</div></div></div>';
         });
     }
 }
@@ -595,79 +468,70 @@ async function loadPromoCodes() {
 function copyText(text) {
     navigator.clipboard.writeText(text);
     toast('Copied!', 'success');
-    console.log('[Promo] Copied:', text);
 }
 
 async function deletePromo(code) {
-    if (!confirm(`Delete promo ${code}?`)) return;
-    const result = await apiCall('/admin/promo/delete', { code });
-    if (result) { toast('Promo deleted', 'success'); loadPromoCodes(); console.log('[Promo] Deleted:', code); }
+    if (!confirm('Delete promo ' + code + '?')) return;
+    var result = await apiCall('/admin/promo/delete', { code: code });
+    if (result) { toast('Promo deleted', 'success'); loadPromoCodes(); }
 }
 
-// ===== NOTIFICATIONS =====
 function toggleNotifUser() {
     document.getElementById('notif-user-group').style.display = this.value === 'single' ? 'block' : 'none';
 }
 
 function updatePreview() {
-    const message = document.getElementById('notif-message').value || 'Your message will appear here';
+    var message = document.getElementById('notif-message').value || 'Your message will appear here';
     document.getElementById('notif-preview').innerHTML = message;
 }
 
 function addNotifButton() {
-    const name = document.getElementById('notif-btn-name').value.trim();
-    const url = document.getElementById('notif-btn-url').value.trim();
+    var name = document.getElementById('notif-btn-name').value.trim();
+    var url = document.getElementById('notif-btn-url').value.trim();
     if (!name || !url) { toast('Enter button name and URL', 'warning'); return; }
     notifButtons.push({ text: name, url: url });
     renderNotifButtons();
     document.getElementById('notif-btn-name').value = '';
     document.getElementById('notif-btn-url').value = '';
-    console.log('[Notifications] Button added:', name);
 }
 
 function renderNotifButtons() {
-    const container = document.getElementById('notif-buttons-list');
-    container.innerHTML = notifButtons.map((btn, i) => `
-        <span class="notif-btn-tag">${btn.text} <i class="fas fa-times" onclick="removeNotifButton(${i})" style="cursor:pointer;margin-left:4px;"></i></span>
-    `).join('');
+    var container = document.getElementById('notif-buttons-list');
+    var html = '';
+    notifButtons.forEach(function(btn, i) {
+        html += '<span class="notif-btn-tag">' + btn.text + ' <i class="fas fa-times" onclick="removeNotifButton(' + i + ')" style="cursor:pointer;margin-left:4px;"></i></span>';
+    });
+    container.innerHTML = html;
 }
 
 function removeNotifButton(index) {
     notifButtons.splice(index, 1);
     renderNotifButtons();
-    console.log('[Notifications] Button removed');
 }
 
 async function sendNotification() {
-    const target = document.getElementById('notif-target').value;
-    const userId = target === 'single' ? parseInt(document.getElementById('notif-user-id').value) : null;
-    const message = document.getElementById('notif-message').value.trim();
-    const schedule = document.getElementById('notif-schedule').value;
+    var target = document.getElementById('notif-target').value;
+    var userId = target === 'single' ? parseInt(document.getElementById('notif-user-id').value) : null;
+    var message = document.getElementById('notif-message').value.trim();
+    var schedule = document.getElementById('notif-schedule').value;
     
     if (!message) { toast('Enter message', 'warning'); return; }
     if (target === 'single' && !userId) { toast('Enter user ID', 'warning'); return; }
     
-    const progressDiv = document.getElementById('notif-progress');
-    const progressFill = document.getElementById('notif-progress-fill');
-    const statusText = document.getElementById('notif-status-text');
+    var progressDiv = document.getElementById('notif-progress');
+    var progressFill = document.getElementById('notif-progress-fill');
+    var statusText = document.getElementById('notif-status-text');
     progressDiv.style.display = 'block';
     progressFill.style.width = '0%';
-    statusText.textContent = schedule ? `Scheduled for ${new Date(schedule).toLocaleString()}...` : 'Sending...';
+    statusText.textContent = schedule ? 'Scheduled for ' + new Date(schedule).toLocaleString() + '...' : 'Sending...';
     
-    const result = await apiCall('/admin/notifications/send', { 
-        userId, 
-        message, 
-        buttons: notifButtons.length > 0 ? notifButtons : null, 
-        target,
-        schedule: schedule || null
-    });
+    var result = await apiCall('/admin/notifications/send', { userId: userId, message: message, buttons: notifButtons.length > 0 ? notifButtons : null, target: target, schedule: schedule || null });
     
     if (result) {
         progressFill.style.width = '100%';
-        statusText.textContent = schedule ? `✅ Scheduled: ${result.sent} users` : `✅ Sent: ${result.sent} | Failed: ${result.failed}`;
-        toast(schedule ? `Notification scheduled for ${new Date(schedule).toLocaleString()}` : `Sent: ${result.sent}, Failed: ${result.failed}`, result.failed > 0 ? 'warning' : 'success');
-        console.log('[Notifications] Sent:', result);
-        setTimeout(() => { progressDiv.style.display = 'none'; }, 3000);
+        statusText.textContent = schedule ? '✅ Scheduled: ' + result.sent + ' users' : '✅ Sent: ' + result.sent + ' | Failed: ' + result.failed;
+        toast(schedule ? 'Notification scheduled for ' + new Date(schedule).toLocaleString() : 'Sent: ' + result.sent + ', Failed: ' + result.failed, result.failed > 0 ? 'warning' : 'success');
+        setTimeout(function() { progressDiv.style.display = 'none'; }, 3000);
     } else {
         statusText.textContent = '❌ Failed to send';
         progressDiv.style.display = 'none';
