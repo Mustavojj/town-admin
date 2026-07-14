@@ -30,11 +30,7 @@ const supabase = createClient(
     process.env.SUPABASE_SERVICE_KEY
 );
 
-const ADMIN_USER_IDS = process.env.ADMIN_USER_IDS ? process.env.ADMIN_USER_IDS.split(',').map(id => parseInt(id.trim())) : [];
-
-function isAdmin(userId) {
-    return ADMIN_USER_IDS.includes(parseInt(userId));
-}
+const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || '12345';
 
 function logError(source, error, req = null) {
     console.error(`[ERROR][${source}]`, {
@@ -110,14 +106,49 @@ async function notifyAdmin(message) {
     }
 }
 
-app.use('/api/admin/*', (req, res, next) => {
-    const userId = req.body.adminId || req.query.adminId || req.headers['x-admin-id'];
-    if (!userId || !isAdmin(userId)) {
-        return res.status(403).json({ success: false, error: 'Admin access required' });
+// ===== AUTH =====
+app.post('/api/admin/login', (req, res) => {
+    const { password } = req.body;
+    if (password === ADMIN_PASSWORD) {
+        res.json({ success: true });
+    } else {
+        res.status(401).json({ success: false, error: 'Invalid password' });
     }
-    next();
 });
 
+// ===== STATS =====
+app.post('/api/admin/stats', async (req, res) => {
+    try {
+        const { data: users, error: usersError } = await supabase
+            .from('users')
+            .select('id');
+        
+        if (usersError) throw usersError;
+        
+        const { data: transactions, error: txError } = await supabase
+            .from('transactions')
+            .select('amount, type, status')
+            .eq('type', 'withdrawal')
+            .eq('status', 'completed');
+        
+        if (txError) throw txError;
+        
+        const totalWithdrawals = transactions.reduce((sum, t) => sum + (t.amount || 0), 0);
+        
+        res.json({
+            success: true,
+            data: {
+                totalUsers: users.length,
+                totalWithdrawals: totalWithdrawals
+            }
+        });
+    } catch (error) {
+        logError('admin/stats', error, req);
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
+// ===== USERS =====
 app.post('/api/admin/users/search', async (req, res) => {
     try {
         const { userId } = req.body;
@@ -126,7 +157,7 @@ app.post('/api/admin/users/search', async (req, res) => {
         }
         const { data, error } = await supabase
             .from('users')
-            .select('id, first_name, username, gram_balance, games_balance, total_referrals, active_referrals, created_at, state')
+            .select('id, first_name, username, gram_balance, games_balance, total_referrals, active_referrals, total_earnings, state')
             .eq('id', userId);
         if (error) throw error;
         res.json({ success: true, data: data[0] || null });
@@ -136,85 +167,50 @@ app.post('/api/admin/users/search', async (req, res) => {
     }
 });
 
-app.post('/api/admin/users/list', async (req, res) => {
+app.post('/api/admin/users/ban', async (req, res) => {
     try {
-        const { limit = 50, offset = 0 } = req.body;
-        const { data, error } = await supabase
-            .from('users')
-            .select('id, first_name, username, gram_balance, games_balance, total_referrals, active_referrals, created_at, state')
-            .order('created_at', { ascending: false })
-            .range(offset, offset + limit - 1);
-        if (error) throw error;
-        res.json({ success: true, data });
-    } catch (error) {
-        logError('admin/users/list', error, req);
-        res.status(500).json({ success: false, error: error.message });
-    }
-});
-
-app.post('/api/admin/users/adjust-balance', async (req, res) => {
-    try {
-        const { userId, amount, type } = req.body;
+        const { userId } = req.body;
         if (!validateUserId(userId)) {
             return res.status(400).json({ success: false, error: 'Invalid user ID' });
         }
-        if (!validateNumber(amount, -1000000, 1000000)) {
-            return res.status(400).json({ success: false, error: 'Invalid amount' });
-        }
-        
-        const { data: userData, error: userError } = await supabase
+        const { error } = await supabase
             .from('users')
-            .select('gram_balance, games_balance')
-            .eq('id', userId)
-            .single();
-        
-        if (userError || !userData) {
-            return res.status(404).json({ success: false, error: 'User not found' });
-        }
-        
-        let updateData = {};
-        let fieldName = '';
-        if (type === 'gram') {
-            const newBalance = (userData.gram_balance || 0) + amount;
-            updateData.gram_balance = newBalance;
-            fieldName = 'GRAM';
-        } else if (type === 'games') {
-            const newBalance = (userData.games_balance || 0) + amount;
-            updateData.games_balance = newBalance;
-            fieldName = 'Games';
-        } else {
-            return res.status(400).json({ success: false, error: 'Invalid balance type' });
-        }
-        
-        const { error: updateError } = await supabase
-            .from('users')
-            .update(updateData)
+            .update({ state: 'ban' })
             .eq('id', userId);
-        
-        if (updateError) throw updateError;
-        
-        const action = amount >= 0 ? 'Added' : 'Deducted';
-        await notifyUser(userId,
-            `<b>💰 Balance Update</b>\n\n` +
-            `<b>${action}:</b> ${Math.abs(amount)} ${fieldName}\n` +
-            `<b>New Balance:</b> ${updateData[type === 'gram' ? 'gram_balance' : 'games_balance']} ${fieldName}`
-        );
-        
-        res.json({ success: true, data: updateData });
+        if (error) throw error;
+        res.json({ success: true });
     } catch (error) {
-        logError('admin/users/adjust-balance', error, req);
+        logError('admin/users/ban', error, req);
         res.status(500).json({ success: false, error: error.message });
     }
 });
 
+app.post('/api/admin/users/unban', async (req, res) => {
+    try {
+        const { userId } = req.body;
+        if (!validateUserId(userId)) {
+            return res.status(400).json({ success: false, error: 'Invalid user ID' });
+        }
+        const { error } = await supabase
+            .from('users')
+            .update({ state: 'active' })
+            .eq('id', userId);
+        if (error) throw error;
+        res.json({ success: true });
+    } catch (error) {
+        logError('admin/users/unban', error, req);
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
+// ===== TASKS =====
 app.post('/api/admin/tasks/list', async (req, res) => {
     try {
-        const { status, owner, limit = 50, offset = 0 } = req.body;
+        const { status, owner } = req.body;
         let query = supabase
             .from('user_tasks')
             .select('*')
-            .order('created_at', { ascending: false })
-            .range(offset, offset + limit - 1);
+            .order('created_at', { ascending: false });
         
         if (status) query = query.eq('status', status);
         if (owner && validateUserId(owner)) query = query.eq('owner', owner);
@@ -228,51 +224,9 @@ app.post('/api/admin/tasks/list', async (req, res) => {
     }
 });
 
-app.post('/api/admin/tasks/create', async (req, res) => {
-    try {
-        const { name, url, description, maxCompletions, verification, rewardGram, rewardGames } = req.body;
-        
-        if (!validateString(name, 50)) {
-            return res.status(400).json({ success: false, error: 'Invalid task name' });
-        }
-        if (!validateString(url, 255)) {
-            return res.status(400).json({ success: false, error: 'Invalid task URL' });
-        }
-        if (!validateNumber(maxCompletions, 1)) {
-            return res.status(400).json({ success: false, error: 'Invalid max completions' });
-        }
-        
-        const taskData = {
-            id: Date.now().toString(),
-            owner: 0,
-            name: name,
-            url: url,
-            description: description || '',
-            max_completions: maxCompletions,
-            verification: verification || false,
-            reward_gram: rewardGram || 0.0001,
-            reward_games: rewardGames || 1,
-            status: 'active',
-            total: 0,
-            created_at: Date.now()
-        };
-        
-        const { data, error } = await supabase
-            .from('user_tasks')
-            .insert([taskData])
-            .select();
-        
-        if (error) throw error;
-        res.json({ success: true, data: data[0] });
-    } catch (error) {
-        logError('admin/tasks/create', error, req);
-        res.status(500).json({ success: false, error: error.message });
-    }
-});
-
 app.post('/api/admin/tasks/update-status', async (req, res) => {
     try {
-        const { taskId, status, userId } = req.body;
+        const { taskId, status } = req.body;
         if (!validateString(taskId, 50)) {
             return res.status(400).json({ success: false, error: 'Invalid task ID' });
         }
@@ -318,15 +272,33 @@ app.post('/api/admin/tasks/update-status', async (req, res) => {
     }
 });
 
+app.post('/api/admin/tasks/delete', async (req, res) => {
+    try {
+        const { taskId } = req.body;
+        if (!validateString(taskId, 50)) {
+            return res.status(400).json({ success: false, error: 'Invalid task ID' });
+        }
+        const { error } = await supabase
+            .from('user_tasks')
+            .delete()
+            .eq('id', taskId);
+        if (error) throw error;
+        res.json({ success: true });
+    } catch (error) {
+        logError('admin/tasks/delete', error, req);
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
+// ===== WITHDRAWALS =====
 app.post('/api/admin/withdrawals/list', async (req, res) => {
     try {
-        const { status, userId, limit = 50, offset = 0 } = req.body;
+        const { status, userId } = req.body;
         let query = supabase
             .from('transactions')
             .select('*')
             .eq('type', 'withdrawal')
-            .order('timestamp', { ascending: false })
-            .range(offset, offset + limit - 1);
+            .order('timestamp', { ascending: false });
         
         if (status) query = query.eq('status', status);
         if (userId && validateUserId(userId)) query = query.eq('user_id', userId);
@@ -367,16 +339,17 @@ app.post('/api/admin/withdrawals/update-status', async (req, res) => {
         
         if (status === 'completed') {
             await notifyUser(txData.user_id,
-                `<b>✅ Withdrawal Approved</b>\n\n` +
+                `<b>✅ Withdrawal Approved!</b>\n\n` +
                 `<b>💎 Amount:</b> ${txData.amount} GRAM\n` +
-                `<b>ℹ️ Check @XRocket or wait 1-24 hour.</b>`
+                `<b>ℹ️ You have received on @XRocket.</b>`
+            );
+            await notifyAdmin(
+                `<b>💰 Withdrawal Completed</b>\n\n` +
+                `<b>User:</b> ${txData.user_id}\n` +
+                `<b>Amount:</b> ${txData.amount} GRAM`
             );
         } else if (status === 'rejected') {
-            await notifyUser(txData.user_id,
-                `<b>❌ Withdrawal Rejected</b>\n\n` +
-                `<b>💎 Amount:</b> ${txData.amount} GRAM\n` +
-                `<b>ℹ️ Please contact support.</b>`
-            );
+            
         }
         
         res.json({ success: true });
@@ -386,6 +359,25 @@ app.post('/api/admin/withdrawals/update-status', async (req, res) => {
     }
 });
 
+app.post('/api/admin/withdrawals/delete', async (req, res) => {
+    try {
+        const { transactionId } = req.body;
+        if (!validateString(transactionId, 50)) {
+            return res.status(400).json({ success: false, error: 'Invalid transaction ID' });
+        }
+        const { error } = await supabase
+            .from('transactions')
+            .delete()
+            .eq('id', transactionId);
+        if (error) throw error;
+        res.json({ success: true });
+    } catch (error) {
+        logError('admin/withdrawals/delete', error, req);
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
+// ===== PROMO =====
 app.post('/api/admin/promo/create', async (req, res) => {
     try {
         const { code, reward, rewardType, maxUses } = req.body;
@@ -457,6 +449,7 @@ app.post('/api/admin/promo/delete', async (req, res) => {
     }
 });
 
+// ===== NOTIFICATIONS =====
 app.post('/api/admin/notifications/send', async (req, res) => {
     try {
         const { userId, message, buttons, target } = req.body;
@@ -470,7 +463,8 @@ app.post('/api/admin/notifications/send', async (req, res) => {
         if (target === 'all') {
             const { data, error } = await supabase
                 .from('users')
-                .select('id');
+                .select('id')
+                .eq('state', 'active');
             if (error) throw error;
             users = data.map(u => u.id);
         } else if (target === 'single' && validateUserId(userId)) {
@@ -481,21 +475,19 @@ app.post('/api/admin/notifications/send', async (req, res) => {
         
         let sent = 0;
         let failed = 0;
-        let results = [];
+        const batchSize = 20;
         
-        for (const uid of users) {
-            try {
-                const success = await notifyUser(uid, message, buttons);
-                if (success) {
-                    sent++;
-                } else {
+        for (let i = 0; i < users.length; i += batchSize) {
+            const batch = users.slice(i, i + batchSize);
+            await Promise.all(batch.map(async (uid) => {
+                try {
+                    const success = await notifyUser(uid, message, buttons);
+                    if (success) sent++;
+                    else failed++;
+                } catch (error) {
                     failed++;
                 }
-                results.push({ userId: uid, success });
-            } catch (error) {
-                failed++;
-                results.push({ userId: uid, success: false, error: error.message });
-            }
+            }));
         }
         
         await notifyAdmin(
@@ -505,59 +497,19 @@ app.post('/api/admin/notifications/send', async (req, res) => {
             `<b>Failed:</b> ${failed}`
         );
         
-        res.json({ success: true, sent, failed, results });
+        res.json({ success: true, sent, failed });
     } catch (error) {
         logError('admin/notifications/send', error, req);
         res.status(500).json({ success: false, error: error.message });
     }
 });
 
-app.post('/api/admin/stats', async (req, res) => {
-    try {
-        const { data: users, error: usersError } = await supabase
-            .from('users')
-            .select('id, gram_balance, games_balance, total_referrals, active_referrals, created_at');
-        
-        if (usersError) throw usersError;
-        
-        const { data: tasks, error: tasksError } = await supabase
-            .from('user_tasks')
-            .select('id, status, total, max_completions');
-        
-        if (tasksError) throw tasksError;
-        
-        const { data: transactions, error: txError } = await supabase
-            .from('transactions')
-            .select('amount, type, status');
-        
-        if (txError) throw txError;
-        
-        const stats = {
-            totalUsers: users.length,
-            totalGramBalance: users.reduce((sum, u) => sum + (u.gram_balance || 0), 0),
-            totalGamesBalance: users.reduce((sum, u) => sum + (u.games_balance || 0), 0),
-            totalReferrals: users.reduce((sum, u) => sum + (u.total_referrals || 0), 0),
-            activeReferrals: users.reduce((sum, u) => sum + (u.active_referrals || 0), 0),
-            totalTasks: tasks.length,
-            activeTasks: tasks.filter(t => t.status === 'active').length,
-            pendingTasks: tasks.filter(t => t.status === 'pending').length,
-            completedTasks: tasks.filter(t => t.status === 'completed').length,
-            totalDeposits: transactions.filter(t => t.type === 'deposit').reduce((sum, t) => sum + (t.amount || 0), 0),
-            totalWithdrawals: transactions.filter(t => t.type === 'withdrawal' && t.status === 'completed').reduce((sum, t) => sum + (t.amount || 0), 0),
-            pendingWithdrawals: transactions.filter(t => t.type === 'withdrawal' && t.status === 'pending').length
-        };
-        
-        res.json({ success: true, data: stats });
-    } catch (error) {
-        logError('admin/stats', error, req);
-        res.status(500).json({ success: false, error: error.message });
-    }
-});
-
+// ===== HEALTH =====
 app.get('/api/health', (req, res) => {
     res.json({ status: 'ok', timestamp: Date.now() });
 });
 
+// ===== STATIC =====
 app.get('*', (req, res) => {
     if (!req.path.startsWith('/api')) {
         res.sendFile(path.join(__dirname, 'admin.html'));
@@ -567,5 +519,4 @@ app.get('*', (req, res) => {
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
     console.log(`Admin Panel running on port ${PORT}`);
-    console.log(`Admin users: ${ADMIN_USER_IDS.join(', ')}`);
 });
