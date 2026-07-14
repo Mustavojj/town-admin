@@ -10,6 +10,7 @@
 </head>
 <body>
 
+<!-- Login Screen -->
 <div id="login-screen" class="login-screen">
     <div class="login-container">
         <div class="login-logo">
@@ -25,26 +26,28 @@
     </div>
 </div>
 
+<!-- Main App -->
 <div id="app" style="display:none;">
     <div class="container">
-
+        <!-- Header -->
         <div class="header">
             <div class="header-left">
                 <img src="https://i.ibb.co/TBhtwyMg/e37282e92d9e.jpg" class="header-logo" alt="Logo">
                 <h1><i class="fas fa-crown" style="color:var(--primary);-webkit-text-fill-color:var(--primary);"></i> Admin Panel</h1>
             </div>
             <div class="header-actions">
+                <button class="btn btn-outline btn-sm" onclick="changePassword()"><i class="fas fa-key"></i> Change Password</button>
                 <button class="btn btn-outline btn-sm" onclick="logout()"><i class="fas fa-sign-out-alt"></i> Logout</button>
             </div>
         </div>
 
-        
+        <!-- Stats -->
         <div class="stats-grid" id="stats-grid">
             <div class="stat-card"><div class="value" id="stat-users">-</div><div class="label">Total Users</div></div>
             <div class="stat-card"><div class="value" id="stat-withdrawals">-</div><div class="label">Total Withdrawals</div></div>
         </div>
 
-        
+        <!-- Tabs -->
         <div class="admin-tabs" id="admin-tabs">
             <button class="admin-tab-btn active" data-tab="users"><i class="fas fa-users"></i> Users</button>
             <button class="admin-tab-btn" data-tab="tasks"><i class="fas fa-tasks"></i> Tasks</button>
@@ -58,7 +61,7 @@
             <div class="panel-card">
                 <div class="card-title"><i class="fas fa-search"></i> Search User</div>
                 <div class="search-row">
-                    <input class="form-control" id="user-search-input" placeholder="Enter User ID..." type="number">
+                    <input class="form-control" id="user-search-input" placeholder="Enter User ID or Username..." type="text">
                     <button class="btn btn-primary" id="user-search-btn"><i class="fas fa-search"></i> Search</button>
                 </div>
                 <div id="user-result"></div>
@@ -78,6 +81,11 @@
                         <option value="completed">Completed</option>
                         <option value="rejected">Rejected</option>
                     </select>
+                    <select class="form-control" id="task-search-creator" style="width:auto;min-width:120px;">
+                        <option value="">All Creators</option>
+                        <option value="admin">Admin Created</option>
+                        <option value="user">User Created</option>
+                    </select>
                     <button class="btn btn-primary" id="task-search-btn"><i class="fas fa-search"></i> Search</button>
                 </div>
             </div>
@@ -96,6 +104,8 @@
                         <option value="completed">Completed</option>
                         <option value="rejected">Rejected</option>
                     </select>
+                    <input class="form-control" id="withdrawal-date-from" type="date" style="width:auto;min-width:140px;">
+                    <input class="form-control" id="withdrawal-date-to" type="date" style="width:auto;min-width:140px;">
                     <button class="btn btn-primary" id="withdrawal-search-btn"><i class="fas fa-search"></i> Search</button>
                 </div>
             </div>
@@ -141,8 +151,16 @@
                     </div>
                 </div>
                 <div class="form-group">
+                    <label>Schedule</label>
+                    <input class="form-control" id="notif-schedule" type="datetime-local">
+                </div>
+                <div class="form-group">
                     <label>Message (HTML supported)</label>
                     <textarea class="form-control" id="notif-message" placeholder="Enter your message with HTML tags..."></textarea>
+                </div>
+                <div class="form-group">
+                    <label>Preview</label>
+                    <div class="notif-preview" id="notif-preview">Your message will appear here</div>
                 </div>
                 <div class="form-group">
                     <label>Buttons</label>
@@ -171,19 +189,60 @@
 const API_URL = 'https://town-admin-production.up.railway.app/api';
 let adminPassword = localStorage.getItem('admin_password') || '12345';
 let notifButtons = [];
+let loginAttempts = 0;
+let isLocked = false;
 
 function login() {
+    if (isLocked) {
+        document.getElementById('login-error').textContent = 'Too many failed attempts. Try again later.';
+        return;
+    }
     const input = document.getElementById('login-password');
     const error = document.getElementById('login-error');
     if (input.value === adminPassword) {
+        loginAttempts = 0;
         document.getElementById('login-screen').style.display = 'none';
         document.getElementById('app').style.display = 'block';
         initApp();
+        console.log('[Admin] Login successful');
     } else {
-        error.textContent = 'Wrong password!';
+        loginAttempts++;
+        error.textContent = `Wrong password! (Attempt ${loginAttempts}/5)`;
         input.value = '';
         input.focus();
+        console.log(`[Admin] Failed login attempt ${loginAttempts}`);
+        if (loginAttempts >= 5) {
+            isLocked = true;
+            error.textContent = 'Too many failed attempts. Locked for 5 minutes.';
+            setTimeout(() => {
+                isLocked = false;
+                loginAttempts = 0;
+                error.textContent = '';
+            }, 300000);
+        }
     }
+}
+
+function changePassword() {
+    const current = prompt('Enter current password:');
+    if (current !== adminPassword) {
+        toast('Wrong current password!', 'error');
+        return;
+    }
+    const newPass = prompt('Enter new password:');
+    if (!newPass || newPass.length < 4) {
+        toast('Password must be at least 4 characters', 'error');
+        return;
+    }
+    const confirmPass = prompt('Confirm new password:');
+    if (newPass !== confirmPass) {
+        toast('Passwords do not match!', 'error');
+        return;
+    }
+    adminPassword = newPass;
+    localStorage.setItem('admin_password', adminPassword);
+    toast('Password changed successfully!', 'success');
+    console.log('[Admin] Password changed');
 }
 
 function logout() {
@@ -191,6 +250,7 @@ function logout() {
     document.getElementById('login-screen').style.display = 'flex';
     document.getElementById('login-password').value = '';
     document.getElementById('login-error').textContent = '';
+    console.log('[Admin] Logged out');
 }
 
 function toast(message, type = 'info') {
@@ -212,11 +272,13 @@ async function apiCall(endpoint, data = {}) {
         const result = await response.json();
         if (!result.success) {
             toast(result.error || 'Request failed', 'error');
+            console.error(`[API] ${endpoint} failed:`, result.error);
             return null;
         }
         return result;
     } catch (e) {
         toast('Network error: ' + e.message, 'error');
+        console.error(`[API] ${endpoint} error:`, e);
         return null;
     }
 }
@@ -231,23 +293,32 @@ function initApp() {
     setupTabs();
     setupEventListeners();
     setInterval(loadStats, 30000);
+    console.log('[Admin] App initialized');
 }
 
 function setupTabs() {
     document.querySelectorAll('#admin-tabs .admin-tab-btn').forEach(btn => {
-        btn.addEventListener('click', function() {
+        btn.addEventListener('click', function(e) {
+            e.preventDefault();
+            console.log('[Admin] Tab clicked:', this.dataset.tab);
             document.querySelectorAll('#admin-tabs .admin-tab-btn').forEach(b => b.classList.remove('active'));
             document.querySelectorAll('.admin-tab-content').forEach(c => c.classList.remove('active'));
             this.classList.add('active');
             const tabId = this.dataset.tab;
             const content = document.getElementById('tab-' + tabId);
-            if (content) content.classList.add('active');
+            if (content) {
+                content.classList.add('active');
+                console.log('[Admin] Tab activated:', tabId);
+            } else {
+                console.error('[Admin] Tab content not found:', tabId);
+            }
             if (tabId === 'users') loadUsers();
             if (tabId === 'tasks') loadTasks();
             if (tabId === 'withdrawals') loadWithdrawals();
             if (tabId === 'promo') loadPromoCodes();
         });
     });
+    console.log('[Admin] Tabs setup complete');
 }
 
 function setupEventListeners() {
@@ -259,6 +330,8 @@ function setupEventListeners() {
     document.getElementById('notif-target')?.addEventListener('change', toggleNotifUser);
     document.getElementById('notif-add-btn')?.addEventListener('click', addNotifButton);
     document.getElementById('notif-send-btn')?.addEventListener('click', sendNotification);
+    document.getElementById('notif-message')?.addEventListener('input', updatePreview);
+    console.log('[Admin] Event listeners setup complete');
 }
 
 // ===== STATS =====
@@ -272,9 +345,10 @@ async function loadStats() {
 
 // ===== USERS =====
 async function searchUser() {
-    const userId = document.getElementById('user-search-input').value.trim();
-    if (!userId) { toast('Enter user ID', 'warning'); return; }
-    const result = await apiCall('/admin/users/search', { userId: parseInt(userId) });
+    const query = document.getElementById('user-search-input').value.trim();
+    if (!query) { toast('Enter user ID or username', 'warning'); return; }
+    const isNumber = !isNaN(query);
+    const result = await apiCall('/admin/users/search', { userId: isNumber ? parseInt(query) : query });
     const container = document.getElementById('user-result');
     if (result && result.data) {
         const u = result.data;
@@ -318,40 +392,49 @@ async function searchUser() {
                 </div>
             </div>
         `;
+        console.log('[Users] Found user:', u.id);
     } else {
         container.innerHTML = '<div class="text-muted mt-8">User not found</div>';
+        console.log('[Users] User not found:', query);
     }
 }
 
 async function banUser(userId) {
     if (!confirm(`Ban user ${userId}?`)) return;
     const result = await apiCall('/admin/users/ban', { userId });
-    if (result) { toast('User banned', 'success'); searchUser(); }
+    if (result) { toast('User banned', 'success'); searchUser(); console.log('[Users] Banned:', userId); }
 }
 
 async function unbanUser(userId) {
     if (!confirm(`Unban user ${userId}?`)) return;
     const result = await apiCall('/admin/users/unban', { userId });
-    if (result) { toast('User unbanned', 'success'); searchUser(); }
+    if (result) { toast('User unbanned', 'success'); searchUser(); console.log('[Users] Unbanned:', userId); }
 }
 
 // ===== TASKS =====
 async function loadTasks() {
     const owner = document.getElementById('task-search-owner')?.value;
     const status = document.getElementById('task-search-status')?.value;
-    const result = await apiCall('/admin/tasks/list', { owner: owner ? parseInt(owner) : null, status: status || null });
+    const creator = document.getElementById('task-search-creator')?.value;
+    const result = await apiCall('/admin/tasks/list', { 
+        owner: owner ? parseInt(owner) : null, 
+        status: status || null,
+        creator: creator || null
+    });
     const container = document.getElementById('tasks-container');
     container.innerHTML = '';
     if (result && result.data) {
         result.data.forEach(t => {
             const statusClass = t.status === 'active' ? 'badge-active' : t.status === 'pending' ? 'badge-pending' : t.status === 'completed' ? 'badge-completed' : 'badge-rejected';
             const progress = t.max_completions > 0 ? (t.total / t.max_completions * 100) : 0;
+            const isAdminTask = t.owner === 0 || t.owner === null;
             container.innerHTML += `
                 <div class="task-card">
                     <div class="task-card-header">
                         <div class="task-card-info">
                             <span class="task-id">#${t.id}</span>
                             <span class="task-name">${t.name}</span>
+                            ${isAdminTask ? '<span class="badge badge-gram">Admin</span>' : ''}
                         </div>
                         <span class="badge ${statusClass}">${t.status}</span>
                     </div>
@@ -359,6 +442,7 @@ async function loadTasks() {
                         <div class="task-detail"><span class="label">Owner:</span> ${t.owner || 'Admin'}</div>
                         <div class="task-detail"><span class="label">URL:</span> <a href="${t.url}" target="_blank">${t.url}</a></div>
                         <div class="task-detail"><span class="label">Description:</span> ${t.description || 'N/A'}</div>
+                        <div class="task-detail"><span class="label">Rewards:</span> ${t.reward_gram || 0.0001} GRAM + ${t.reward_games || 1} Game</div>
                         <div class="task-progress">
                             <div class="task-progress-bar"><div class="task-progress-fill" style="width:${Math.min(progress, 100)}%"></div></div>
                             <span class="task-progress-text">${t.total}/${t.max_completions}</span>
@@ -367,6 +451,7 @@ async function loadTasks() {
                     <div class="task-card-actions">
                         ${t.status === 'pending' ? `<button class="btn btn-success btn-sm" onclick="updateTask('${t.id}','active')"><i class="fas fa-check"></i> Approve</button>` : ''}
                         ${t.status === 'pending' ? `<button class="btn btn-danger btn-sm" onclick="updateTask('${t.id}','rejected')"><i class="fas fa-times"></i> Reject</button>` : ''}
+                        <button class="btn btn-warning btn-sm" onclick="editTask('${t.id}')"><i class="fas fa-edit"></i> Edit</button>
                         <button class="btn btn-danger btn-sm" onclick="deleteTask('${t.id}')"><i class="fas fa-trash"></i> Delete</button>
                     </div>
                 </div>
@@ -377,22 +462,51 @@ async function loadTasks() {
     }
 }
 
+async function editTask(taskId) {
+    const result = await apiCall('/admin/tasks/get', { taskId });
+    if (!result || !result.data) return;
+    const t = result.data;
+    const name = prompt('Task Name:', t.name);
+    if (name === null) return;
+    const url = prompt('Task URL:', t.url);
+    if (url === null) return;
+    const rewardGram = prompt('Reward GRAM:', t.reward_gram || 0.0001);
+    if (rewardGram === null) return;
+    const rewardGames = prompt('Reward Games:', t.reward_games || 1);
+    if (rewardGames === null) return;
+    const result2 = await apiCall('/admin/tasks/update', { 
+        taskId, 
+        name, 
+        url, 
+        rewardGram: parseFloat(rewardGram), 
+        rewardGames: parseInt(rewardGames) 
+    });
+    if (result2) { toast('Task updated!', 'success'); loadTasks(); }
+}
+
 async function updateTask(taskId, status) {
     const result = await apiCall('/admin/tasks/update-status', { taskId, status });
-    if (result) { toast(`Task ${status}`, 'success'); loadTasks(); }
+    if (result) { toast(`Task ${status}`, 'success'); loadTasks(); console.log('[Tasks] Updated:', taskId, status); }
 }
 
 async function deleteTask(taskId) {
     if (!confirm(`Delete task ${taskId}?`)) return;
     const result = await apiCall('/admin/tasks/delete', { taskId });
-    if (result) { toast('Task deleted', 'success'); loadTasks(); }
+    if (result) { toast('Task deleted', 'success'); loadTasks(); console.log('[Tasks] Deleted:', taskId); }
 }
 
 // ===== WITHDRAWALS =====
 async function loadWithdrawals() {
     const userId = document.getElementById('withdrawal-search-user')?.value;
     const status = document.getElementById('withdrawal-search-status')?.value;
-    const result = await apiCall('/admin/withdrawals/list', { userId: userId ? parseInt(userId) : null, status: status || null });
+    const dateFrom = document.getElementById('withdrawal-date-from')?.value;
+    const dateTo = document.getElementById('withdrawal-date-to')?.value;
+    const result = await apiCall('/admin/withdrawals/list', { 
+        userId: userId ? parseInt(userId) : null, 
+        status: status || null,
+        dateFrom: dateFrom || null,
+        dateTo: dateTo || null
+    });
     const container = document.getElementById('withdrawals-container');
     container.innerHTML = '';
     if (result && result.data) {
@@ -426,13 +540,13 @@ async function loadWithdrawals() {
 
 async function updateWithdrawal(transactionId, status) {
     const result = await apiCall('/admin/withdrawals/update-status', { transactionId, status });
-    if (result) { toast(`Withdrawal ${status}`, 'success'); loadWithdrawals(); }
+    if (result) { toast(`Withdrawal ${status}`, 'success'); loadWithdrawals(); console.log('[Withdrawals] Updated:', transactionId, status); }
 }
 
 async function deleteWithdrawal(transactionId) {
     if (!confirm(`Delete withdrawal ${transactionId}?`)) return;
     const result = await apiCall('/admin/withdrawals/delete', { transactionId });
-    if (result) { toast('Withdrawal deleted', 'success'); loadWithdrawals(); }
+    if (result) { toast('Withdrawal deleted', 'success'); loadWithdrawals(); console.log('[Withdrawals] Deleted:', transactionId); }
 }
 
 // ===== PROMO =====
@@ -441,6 +555,7 @@ function generatePromo() {
     let code = '';
     for (let i = 0; i < 8; i++) code += chars[Math.floor(Math.random() * chars.length)];
     document.getElementById('promo-code').value = code;
+    console.log('[Promo] Generated:', code);
 }
 
 async function createPromo() {
@@ -450,7 +565,7 @@ async function createPromo() {
     const maxUses = parseInt(document.getElementById('promo-max-uses').value) || 999999;
     if (!code) { toast('Enter promo code', 'warning'); return; }
     const result = await apiCall('/admin/promo/create', { code, reward, rewardType, maxUses });
-    if (result) { toast('Promo created!', 'success'); document.getElementById('promo-code').value = ''; loadPromoCodes(); }
+    if (result) { toast('Promo created!', 'success'); document.getElementById('promo-code').value = ''; loadPromoCodes(); console.log('[Promo] Created:', code); }
 }
 
 async function loadPromoCodes() {
@@ -480,17 +595,23 @@ async function loadPromoCodes() {
 function copyText(text) {
     navigator.clipboard.writeText(text);
     toast('Copied!', 'success');
+    console.log('[Promo] Copied:', text);
 }
 
 async function deletePromo(code) {
     if (!confirm(`Delete promo ${code}?`)) return;
     const result = await apiCall('/admin/promo/delete', { code });
-    if (result) { toast('Promo deleted', 'success'); loadPromoCodes(); }
+    if (result) { toast('Promo deleted', 'success'); loadPromoCodes(); console.log('[Promo] Deleted:', code); }
 }
 
 // ===== NOTIFICATIONS =====
 function toggleNotifUser() {
     document.getElementById('notif-user-group').style.display = this.value === 'single' ? 'block' : 'none';
+}
+
+function updatePreview() {
+    const message = document.getElementById('notif-message').value || 'Your message will appear here';
+    document.getElementById('notif-preview').innerHTML = message;
 }
 
 function addNotifButton() {
@@ -501,6 +622,7 @@ function addNotifButton() {
     renderNotifButtons();
     document.getElementById('notif-btn-name').value = '';
     document.getElementById('notif-btn-url').value = '';
+    console.log('[Notifications] Button added:', name);
 }
 
 function renderNotifButtons() {
@@ -513,12 +635,14 @@ function renderNotifButtons() {
 function removeNotifButton(index) {
     notifButtons.splice(index, 1);
     renderNotifButtons();
+    console.log('[Notifications] Button removed');
 }
 
 async function sendNotification() {
     const target = document.getElementById('notif-target').value;
     const userId = target === 'single' ? parseInt(document.getElementById('notif-user-id').value) : null;
     const message = document.getElementById('notif-message').value.trim();
+    const schedule = document.getElementById('notif-schedule').value;
     
     if (!message) { toast('Enter message', 'warning'); return; }
     if (target === 'single' && !userId) { toast('Enter user ID', 'warning'); return; }
@@ -528,19 +652,21 @@ async function sendNotification() {
     const statusText = document.getElementById('notif-status-text');
     progressDiv.style.display = 'block';
     progressFill.style.width = '0%';
-    statusText.textContent = 'Sending...';
+    statusText.textContent = schedule ? `Scheduled for ${new Date(schedule).toLocaleString()}...` : 'Sending...';
     
     const result = await apiCall('/admin/notifications/send', { 
         userId, 
         message, 
         buttons: notifButtons.length > 0 ? notifButtons : null, 
-        target 
+        target,
+        schedule: schedule || null
     });
     
     if (result) {
         progressFill.style.width = '100%';
-        statusText.textContent = `✅ Sent: ${result.sent} | Failed: ${result.failed}`;
-        toast(`Sent: ${result.sent}, Failed: ${result.failed}`, result.failed > 0 ? 'warning' : 'success');
+        statusText.textContent = schedule ? `✅ Scheduled: ${result.sent} users` : `✅ Sent: ${result.sent} | Failed: ${result.failed}`;
+        toast(schedule ? `Notification scheduled for ${new Date(schedule).toLocaleString()}` : `Sent: ${result.sent}, Failed: ${result.failed}`, result.failed > 0 ? 'warning' : 'success');
+        console.log('[Notifications] Sent:', result);
         setTimeout(() => { progressDiv.style.display = 'none'; }, 3000);
     } else {
         statusText.textContent = '❌ Failed to send';
@@ -549,4 +675,4 @@ async function sendNotification() {
 }
 </script>
 </body>
-                    </html>
+</html>
