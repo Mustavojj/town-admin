@@ -205,8 +205,8 @@ body {
     margin-top: 4px;
 }
 
-/* ===== TABS ===== */
-.tabs {
+/* ===== ADMIN TABS ===== */
+.admin-tabs {
     display: flex;
     gap: 4px;
     background: var(--glass-bg);
@@ -217,7 +217,7 @@ body {
     flex-wrap: wrap;
 }
 
-.tab-btn {
+.admin-tab-btn {
     padding: 10px 20px;
     border: none;
     border-radius: 8px;
@@ -232,26 +232,26 @@ body {
     gap: 8px;
 }
 
-.tab-btn i {
+.admin-tab-btn i {
     font-size: 14px;
 }
 
-.tab-btn.active {
+.admin-tab-btn.active {
     background: var(--primary);
     color: #fff;
     box-shadow: 0 4px 20px var(--primary-glow);
 }
 
-.tab-btn:hover:not(.active) {
+.admin-tab-btn:hover:not(.active) {
     background: var(--glass-border);
 }
 
-.tab-content {
+.admin-tab-content {
     display: none;
     animation: fadeIn 0.3s ease;
 }
 
-.tab-content.active {
+.admin-tab-content.active {
     display: block;
 }
 
