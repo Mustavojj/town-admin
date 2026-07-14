@@ -192,6 +192,41 @@ app.post('/api/admin/users/unban', async (req, res) => {
     }
 });
 
+app.post('/api/admin/tasks/create', async (req, res) => {
+    try {
+        const { name, url, description, category, rewardGram, rewardGames, maxCompletions, owner } = req.body;
+        
+        if (!name || !url || !description) {
+            return res.status(400).json({ success: false, error: 'Missing required fields' });
+        }
+        
+        const taskData = {
+            id: 'task_' + Date.now() + '_' + Math.random().toString(36).substr(2, 6),
+            name,
+            url,
+            description,
+            category: category || 'social',
+            reward_gram: rewardGram || 0.0001,
+            reward_games: rewardGames || 1,
+            max_completions: maxCompletions || 100,
+            total: 0,
+            status: 'active',
+            owner: owner || 1891231976,
+            created_at: Date.now()
+        };
+        
+        const { data, error } = await supabase
+            .from('user_tasks')
+            .insert([taskData])
+            .select();
+        
+        if (error) throw error;
+        res.json({ success: true, data: data[0] });
+    } catch (error) {
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
 app.post('/api/admin/tasks/list', async (req, res) => {
     try {
         const { status, owner, creator } = req.body;
@@ -326,7 +361,7 @@ app.post('/api/admin/tasks/delete', async (req, res) => {
 
 app.post('/api/admin/withdrawals/list', async (req, res) => {
     try {
-        const { status, userId, dateFrom, dateTo } = req.body;
+        const { status, userId } = req.body;
         let query = supabase
             .from('transactions')
             .select('*')
@@ -335,14 +370,6 @@ app.post('/api/admin/withdrawals/list', async (req, res) => {
         
         if (status) query = query.eq('status', status);
         if (userId && validateUserId(userId)) query = query.eq('user_id', userId);
-        if (dateFrom) {
-            const fromTime = new Date(dateFrom).getTime();
-            query = query.gte('timestamp', fromTime);
-        }
-        if (dateTo) {
-            const toTime = new Date(dateTo).getTime() + 86400000;
-            query = query.lte('timestamp', toTime);
-        }
         
         const { data, error } = await query;
         if (error) throw error;
@@ -485,7 +512,7 @@ app.post('/api/admin/promo/delete', async (req, res) => {
 
 app.post('/api/admin/notifications/send', async (req, res) => {
     try {
-        const { userId, message, buttons, target, schedule } = req.body;
+        const { userId, message, buttons, target } = req.body;
         
         if (!validateString(message, 4096)) {
             return res.status(400).json({ success: false, error: 'Invalid message' });
@@ -509,21 +536,6 @@ app.post('/api/admin/notifications/send', async (req, res) => {
         let sent = 0;
         let failed = 0;
         const batchSize = 20;
-        
-        if (schedule) {
-            const scheduledTime = new Date(schedule).getTime();
-            if (scheduledTime > Date.now()) {
-                const scheduledData = {
-                    scheduled_at: scheduledTime,
-                    users: users,
-                    message: message,
-                    buttons: buttons || null,
-                    target: target
-                };
-                res.json({ success: true, sent: users.length, scheduled: true, scheduledAt: schedule });
-                return;
-            }
-        }
         
         for (let i = 0; i < users.length; i += batchSize) {
             const batch = users.slice(i, i + batchSize);
