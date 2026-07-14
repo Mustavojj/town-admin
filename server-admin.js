@@ -152,13 +152,19 @@ app.post('/api/admin/stats', async (req, res) => {
 app.post('/api/admin/users/search', async (req, res) => {
     try {
         const { userId } = req.body;
-        if (!validateUserId(userId)) {
-            return res.status(400).json({ success: false, error: 'Invalid user ID' });
-        }
-        const { data, error } = await supabase
+        let query = supabase
             .from('users')
-            .select('id, first_name, username, gram_balance, games_balance, total_referrals, active_referrals, total_earnings, state')
-            .eq('id', userId);
+            .select('id, first_name, username, gram_balance, games_balance, total_referrals, active_referrals, total_earnings, state');
+        
+        if (typeof userId === 'number' && userId > 0) {
+            query = query.eq('id', userId);
+        } else if (typeof userId === 'string' && userId.length > 0) {
+            query = query.ilike('username', userId);
+        } else {
+            return res.status(400).json({ success: false, error: 'Invalid user ID or username' });
+        }
+        
+        const { data, error } = await query;
         if (error) throw error;
         res.json({ success: true, data: data[0] || null });
     } catch (error) {
@@ -206,7 +212,7 @@ app.post('/api/admin/users/unban', async (req, res) => {
 // ===== TASKS =====
 app.post('/api/admin/tasks/list', async (req, res) => {
     try {
-        const { status, owner } = req.body;
+        const { status, owner, creator } = req.body;
         let query = supabase
             .from('user_tasks')
             .select('*')
@@ -214,12 +220,63 @@ app.post('/api/admin/tasks/list', async (req, res) => {
         
         if (status) query = query.eq('status', status);
         if (owner && validateUserId(owner)) query = query.eq('owner', owner);
+        if (creator === 'admin') query = query.eq('owner', 0);
+        if (creator === 'user') query = query.neq('owner', 0);
         
         const { data, error } = await query;
         if (error) throw error;
         res.json({ success: true, data });
     } catch (error) {
         logError('admin/tasks/list', error, req);
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
+app.post('/api/admin/tasks/get', async (req, res) => {
+    try {
+        const { taskId } = req.body;
+        if (!validateString(taskId, 50)) {
+            return res.status(400).json({ success: false, error: 'Invalid task ID' });
+        }
+        const { data, error } = await supabase
+            .from('user_tasks')
+            .select('*')
+            .eq('id', taskId)
+            .single();
+        if (error) throw error;
+        res.json({ success: true, data });
+    } catch (error) {
+        logError('admin/tasks/get', error, req);
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
+app.post('/api/admin/tasks/update', async (req, res) => {
+    try {
+        const { taskId, name, url, rewardGram, rewardGames } = req.body;
+        if (!validateString(taskId, 50)) {
+            return res.status(400).json({ success: false, error: 'Invalid task ID' });
+        }
+        if (!validateString(name, 50)) {
+            return res.status(400).json({ success: false, error: 'Invalid task name' });
+        }
+        if (!validateString(url, 255)) {
+            return res.status(400).json({ success: false, error: 'Invalid task URL' });
+        }
+        
+        const { error } = await supabase
+            .from('user_tasks')
+            .update({ 
+                name, 
+                url, 
+                reward_gram: rewardGram || 0.0001, 
+                reward_games: rewardGames || 1 
+            })
+            .eq('id', taskId);
+        if (error) throw error;
+        res.json({ success: true });
+    } catch (error) {
+        logError('admin/tasks/update', error, req);
         res.status(500).json({ success: false, error: error.message });
     }
 });
@@ -293,7 +350,7 @@ app.post('/api/admin/tasks/delete', async (req, res) => {
 // ===== WITHDRAWALS =====
 app.post('/api/admin/withdrawals/list', async (req, res) => {
     try {
-        const { status, userId } = req.body;
+        const { status, userId, dateFrom, dateTo } = req.body;
         let query = supabase
             .from('transactions')
             .select('*')
@@ -302,6 +359,14 @@ app.post('/api/admin/withdrawals/list', async (req, res) => {
         
         if (status) query = query.eq('status', status);
         if (userId && validateUserId(userId)) query = query.eq('user_id', userId);
+        if (dateFrom) {
+            const fromTime = new Date(dateFrom).getTime();
+            query = query.gte('timestamp', fromTime);
+        }
+        if (dateTo) {
+            const toTime = new Date(dateTo).getTime() + 86400000;
+            query = query.lte('timestamp', toTime);
+        }
         
         const { data, error } = await query;
         if (error) throw error;
@@ -456,7 +521,7 @@ app.post('/api/admin/promo/delete', async (req, res) => {
 // ===== NOTIFICATIONS =====
 app.post('/api/admin/notifications/send', async (req, res) => {
     try {
-        const { userId, message, buttons, target } = req.body;
+        const { userId, message, buttons, target, schedule } = req.body;
         
         if (!validateString(message, 4096)) {
             return res.status(400).json({ success: false, error: 'Invalid message' });
@@ -480,6 +545,22 @@ app.post('/api/admin/notifications/send', async (req, res) => {
         let sent = 0;
         let failed = 0;
         const batchSize = 20;
+        
+        if (schedule) {
+            const scheduledTime = new Date(schedule).getTime();
+            if (scheduledTime > Date.now()) {
+                const scheduledData = {
+                    scheduled_at: scheduledTime,
+                    users: users,
+                    message: message,
+                    buttons: buttons || null,
+                    target: target
+                };
+                console.log('[Notifications] Scheduled:', scheduledData);
+                res.json({ success: true, sent: users.length, scheduled: true, scheduledAt: schedule });
+                return;
+            }
+        }
         
         for (let i = 0; i < users.length; i += batchSize) {
             const batch = users.slice(i, i + batchSize);
@@ -523,4 +604,5 @@ app.get('*', (req, res) => {
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
     console.log(`Admin Panel running on port ${PORT}`);
+    console.log(`Admin password: ${ADMIN_PASSWORD}`);
 });
