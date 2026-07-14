@@ -339,9 +339,9 @@ app.post('/api/admin/withdrawals/update-status', async (req, res) => {
         
         if (status === 'completed') {
             await notifyUser(txData.user_id,
-                `<b>✅ Withdrawal Approved!</b>\n\n` +
+                `<b>✅ Withdrawal Approved</b>\n\n` +
                 `<b>💎 Amount:</b> ${txData.amount} GRAM\n` +
-                `<b>ℹ️ You have received on @XRocket.</b>`
+                `<b>ℹ️ Check @XRocket or wait 1-24 hour.</b>`
             );
             await notifyAdmin(
                 `<b>💰 Withdrawal Completed</b>\n\n` +
@@ -349,7 +349,11 @@ app.post('/api/admin/withdrawals/update-status', async (req, res) => {
                 `<b>Amount:</b> ${txData.amount} GRAM`
             );
         } else if (status === 'rejected') {
-            
+            await notifyUser(txData.user_id,
+                `<b>❌ Withdrawal Rejected</b>\n\n` +
+                `<b>💎 Amount:</b> ${txData.amount} GRAM\n` +
+                `<b>ℹ️ Please contact support.</b>`
+            );
         }
         
         res.json({ success: true });
