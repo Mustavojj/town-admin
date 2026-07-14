@@ -211,8 +211,8 @@ body {
     margin-top: 4px;
 }
 
-/* ===== ADMIN TABS ===== */
-.admin-tabs {
+/* ===== TABS ===== */
+.tabs {
     display: flex;
     gap: 4px;
     background: var(--glass-bg);
@@ -223,7 +223,7 @@ body {
     flex-wrap: wrap;
 }
 
-.admin-tab-btn {
+.tab {
     padding: 10px 20px;
     border: none;
     border-radius: 8px;
@@ -238,38 +238,32 @@ body {
     gap: 8px;
 }
 
-.admin-tab-btn i {
+.tab i {
     font-size: 14px;
 }
 
-.admin-tab-btn.active {
+.tab.active {
     background: var(--primary);
     color: #fff;
     box-shadow: 0 4px 20px var(--primary-glow);
 }
 
-.admin-tab-btn:hover:not(.active) {
+.tab:hover:not(.active) {
     background: var(--glass-border);
 }
 
-.admin-tab-content {
+.tab-content {
     display: none;
     animation: fadeIn 0.3s ease;
 }
 
-.admin-tab-content.active {
+.tab-content.active {
     display: block;
 }
 
 @keyframes fadeIn {
-    from {
-        opacity: 0;
-        transform: translateY(8px);
-    }
-    to {
-        opacity: 1;
-        transform: translateY(0);
-    }
+    from { opacity: 0; transform: translateY(8px); }
+    to { opacity: 1; transform: translateY(0); }
 }
 
 /* ===== PANEL CARD ===== */
@@ -726,7 +720,8 @@ textarea.form-control {
     word-wrap: break-word;
 }
 
-.notif-preview b, .notif-preview strong {
+.notif-preview b,
+.notif-preview strong {
     color: var(--text);
 }
 
@@ -737,7 +732,6 @@ textarea.form-control {
     font-size: 12px;
 }
 
-/* ===== NOTIFICATION BUTTONS ===== */
 .notif-btn-tag {
     background: var(--glass-bg);
     border: 1px solid var(--glass-border);
@@ -784,14 +778,8 @@ textarea.form-control {
 }
 
 @keyframes slideUp {
-    from {
-        opacity: 0;
-        transform: translateY(20px);
-    }
-    to {
-        opacity: 1;
-        transform: translateY(0);
-    }
+    from { opacity: 0; transform: translateY(20px); }
+    to { opacity: 1; transform: translateY(0); }
 }
 
 /* ===== PROGRESS ===== */
@@ -866,11 +854,11 @@ textarea.form-control {
     .header h1 {
         font-size: 18px;
     }
-    .admin-tab-btn {
+    .tab {
         padding: 8px 12px;
         font-size: 12px;
     }
-    .admin-tab-btn span {
+    .tab span {
         display: none;
     }
 }
