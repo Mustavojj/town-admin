@@ -1,3 +1,4 @@
+// server-admin.js
 const express = require('express');
 const cors = require('cors');
 const path = require('path');
@@ -31,15 +32,6 @@ const supabase = createClient(
 );
 
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || '12345';
-
-function logError(source, error, req = null) {
-    console.error(`[ERROR][${source}]`, {
-        message: error.message,
-        stack: error.stack,
-        timestamp: new Date().toISOString(),
-        ...(req && { body: req.body, url: req.url })
-    });
-}
 
 function validateUserId(userId) {
     return userId && typeof userId === 'number' && userId > 0;
@@ -81,7 +73,6 @@ async function notifyUser(userId, message, buttons = null) {
         });
         return true;
     } catch (error) {
-        console.error('[Notify] User error:', error);
         return false;
     }
 }
@@ -102,11 +93,10 @@ async function notifyAdmin(message) {
             })
         });
     } catch (error) {
-        console.error('[Notify] Admin error:', error);
+        return;
     }
 }
 
-// ===== AUTH =====
 app.post('/api/admin/login', (req, res) => {
     const { password } = req.body;
     if (password === ADMIN_PASSWORD) {
@@ -116,7 +106,6 @@ app.post('/api/admin/login', (req, res) => {
     }
 });
 
-// ===== STATS =====
 app.post('/api/admin/stats', async (req, res) => {
     try {
         const { data: users, error: usersError } = await supabase
@@ -143,12 +132,10 @@ app.post('/api/admin/stats', async (req, res) => {
             }
         });
     } catch (error) {
-        logError('admin/stats', error, req);
         res.status(500).json({ success: false, error: error.message });
     }
 });
 
-// ===== USERS =====
 app.post('/api/admin/users/search', async (req, res) => {
     try {
         const { userId } = req.body;
@@ -168,7 +155,6 @@ app.post('/api/admin/users/search', async (req, res) => {
         if (error) throw error;
         res.json({ success: true, data: data[0] || null });
     } catch (error) {
-        logError('admin/users/search', error, req);
         res.status(500).json({ success: false, error: error.message });
     }
 });
@@ -186,7 +172,6 @@ app.post('/api/admin/users/ban', async (req, res) => {
         if (error) throw error;
         res.json({ success: true });
     } catch (error) {
-        logError('admin/users/ban', error, req);
         res.status(500).json({ success: false, error: error.message });
     }
 });
@@ -204,12 +189,10 @@ app.post('/api/admin/users/unban', async (req, res) => {
         if (error) throw error;
         res.json({ success: true });
     } catch (error) {
-        logError('admin/users/unban', error, req);
         res.status(500).json({ success: false, error: error.message });
     }
 });
 
-// ===== TASKS =====
 app.post('/api/admin/tasks/list', async (req, res) => {
     try {
         const { status, owner, creator } = req.body;
@@ -227,7 +210,6 @@ app.post('/api/admin/tasks/list', async (req, res) => {
         if (error) throw error;
         res.json({ success: true, data });
     } catch (error) {
-        logError('admin/tasks/list', error, req);
         res.status(500).json({ success: false, error: error.message });
     }
 });
@@ -246,7 +228,6 @@ app.post('/api/admin/tasks/get', async (req, res) => {
         if (error) throw error;
         res.json({ success: true, data });
     } catch (error) {
-        logError('admin/tasks/get', error, req);
         res.status(500).json({ success: false, error: error.message });
     }
 });
@@ -276,7 +257,6 @@ app.post('/api/admin/tasks/update', async (req, res) => {
         if (error) throw error;
         res.json({ success: true });
     } catch (error) {
-        logError('admin/tasks/update', error, req);
         res.status(500).json({ success: false, error: error.message });
     }
 });
@@ -324,7 +304,6 @@ app.post('/api/admin/tasks/update-status', async (req, res) => {
         
         res.json({ success: true });
     } catch (error) {
-        logError('admin/tasks/update-status', error, req);
         res.status(500).json({ success: false, error: error.message });
     }
 });
@@ -342,12 +321,10 @@ app.post('/api/admin/tasks/delete', async (req, res) => {
         if (error) throw error;
         res.json({ success: true });
     } catch (error) {
-        logError('admin/tasks/delete', error, req);
         res.status(500).json({ success: false, error: error.message });
     }
 });
 
-// ===== WITHDRAWALS =====
 app.post('/api/admin/withdrawals/list', async (req, res) => {
     try {
         const { status, userId, dateFrom, dateTo } = req.body;
@@ -372,7 +349,6 @@ app.post('/api/admin/withdrawals/list', async (req, res) => {
         if (error) throw error;
         res.json({ success: true, data });
     } catch (error) {
-        logError('admin/withdrawals/list', error, req);
         res.status(500).json({ success: false, error: error.message });
     }
 });
@@ -404,9 +380,9 @@ app.post('/api/admin/withdrawals/update-status', async (req, res) => {
         
         if (status === 'completed') {
             await notifyUser(txData.user_id,
-                `<b>✅ Withdrawal Approved</b>\n\n` +
+                `<b>✅ Withdrawal Approved!</b>\n\n` +
                 `<b>💎 Amount:</b> ${txData.amount} GRAM\n` +
-                `<b>ℹ️ Check @XRocket or wait 1-24 hour.</b>`
+                `<b>ℹ️ Check Your Funds on @XRocket</b>`
             );
             await notifyAdmin(
                 `<b>💰 Withdrawal Completed</b>\n\n` +
@@ -414,16 +390,11 @@ app.post('/api/admin/withdrawals/update-status', async (req, res) => {
                 `<b>Amount:</b> ${txData.amount} GRAM`
             );
         } else if (status === 'rejected') {
-            await notifyUser(txData.user_id,
-                `<b>❌ Withdrawal Rejected</b>\n\n` +
-                `<b>💎 Amount:</b> ${txData.amount} GRAM\n` +
-                `<b>ℹ️ Please contact support.</b>`
-            );
+            
         }
         
         res.json({ success: true });
     } catch (error) {
-        logError('admin/withdrawals/update-status', error, req);
         res.status(500).json({ success: false, error: error.message });
     }
 });
@@ -441,12 +412,10 @@ app.post('/api/admin/withdrawals/delete', async (req, res) => {
         if (error) throw error;
         res.json({ success: true });
     } catch (error) {
-        logError('admin/withdrawals/delete', error, req);
         res.status(500).json({ success: false, error: error.message });
     }
 });
 
-// ===== PROMO =====
 app.post('/api/admin/promo/create', async (req, res) => {
     try {
         const { code, reward, rewardType, maxUses } = req.body;
@@ -478,7 +447,6 @@ app.post('/api/admin/promo/create', async (req, res) => {
         if (error) throw error;
         res.json({ success: true, data: data[0] });
     } catch (error) {
-        logError('admin/promo/create', error, req);
         res.status(500).json({ success: false, error: error.message });
     }
 });
@@ -493,7 +461,6 @@ app.post('/api/admin/promo/list', async (req, res) => {
         if (error) throw error;
         res.json({ success: true, data });
     } catch (error) {
-        logError('admin/promo/list', error, req);
         res.status(500).json({ success: false, error: error.message });
     }
 });
@@ -513,12 +480,10 @@ app.post('/api/admin/promo/delete', async (req, res) => {
         if (error) throw error;
         res.json({ success: true });
     } catch (error) {
-        logError('admin/promo/delete', error, req);
         res.status(500).json({ success: false, error: error.message });
     }
 });
 
-// ===== NOTIFICATIONS =====
 app.post('/api/admin/notifications/send', async (req, res) => {
     try {
         const { userId, message, buttons, target, schedule } = req.body;
@@ -556,7 +521,6 @@ app.post('/api/admin/notifications/send', async (req, res) => {
                     buttons: buttons || null,
                     target: target
                 };
-                console.log('[Notifications] Scheduled:', scheduledData);
                 res.json({ success: true, sent: users.length, scheduled: true, scheduledAt: schedule });
                 return;
             }
@@ -584,17 +548,14 @@ app.post('/api/admin/notifications/send', async (req, res) => {
         
         res.json({ success: true, sent, failed });
     } catch (error) {
-        logError('admin/notifications/send', error, req);
         res.status(500).json({ success: false, error: error.message });
     }
 });
 
-// ===== HEALTH =====
 app.get('/api/health', (req, res) => {
     res.json({ status: 'ok', timestamp: Date.now() });
 });
 
-// ===== STATIC =====
 app.get('*', (req, res) => {
     if (!req.path.startsWith('/api')) {
         res.sendFile(path.join(__dirname, 'admin.html'));
@@ -604,5 +565,4 @@ app.get('*', (req, res) => {
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
     console.log(`Admin Panel running on port ${PORT}`);
-    console.log(`Admin password: ${ADMIN_PASSWORD}`);
 });
