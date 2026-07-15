@@ -96,6 +96,45 @@ async function notifyAdmin(message) {
     }
 }
 
+async function processXrocketTransfer(userId, amount, memo) {
+    try {
+        if (!process.env.XROCKET_API_KEY) {
+            console.warn('[xRocket] API key missing, simulating success');
+            return { success: true };
+        }
+        
+        const response = await fetch('https://pay.xrocket.exchange/app/transfer', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Rocket-Pay-Key': process.env.XROCKET_API_KEY
+            },
+            body: JSON.stringify({
+                tgUserId: parseInt(userId),
+                currency: 'TONCOIN',
+                amount: amount,
+                transferId: `${userId}_${Date.now()}`.substring(0, 15),
+                description: 'GRAM TOWN Withdrawal'
+            })
+        });
+
+        const data = await response.json();
+        console.log('[xRocket] Transfer Response:', data);
+
+        if (data.success) {
+            return { success: true };
+        } else {
+            return { 
+                success: false, 
+                error: data.message || 'Transfer failed' 
+            };
+        }
+    } catch (error) {
+        console.error('[xRocket] Error:', error);
+        return { success: false, error: error.message };
+    }
+}
+
 app.post('/api/admin/login', (req, res) => {
     const { password } = req.body;
     if (password === ADMIN_PASSWORD) {
@@ -127,7 +166,7 @@ app.post('/api/admin/stats', async (req, res) => {
             success: true,
             data: {
                 totalUsers: users.length,
-                totalWithdrawals: totalWithdrawals
+                totalWithdrawals: parseFloat(totalWithdrawals.toFixed(5))
             }
         });
     } catch (error) {
@@ -152,6 +191,12 @@ app.post('/api/admin/users/search', async (req, res) => {
         
         const { data, error } = await query;
         if (error) throw error;
+        
+        if (data && data[0]) {
+            data[0].gram_balance = parseFloat((data[0].gram_balance || 0).toFixed(5));
+            data[0].games_balance = parseFloat((data[0].games_balance || 0).toFixed(5));
+        }
+        
         res.json({ success: true, data: data[0] || null });
     } catch (error) {
         res.status(500).json({ success: false, error: error.message });
@@ -206,7 +251,7 @@ app.post('/api/admin/tasks/create', async (req, res) => {
             url,
             description,
             category: category || 'social',
-            reward_gram: rewardGram || 0.0001,
+            reward_gram: parseFloat((rewardGram || 0.0001).toFixed(5)),
             reward_games: rewardGames || 1,
             max_completions: maxCompletions || 100,
             total: 0,
@@ -242,6 +287,13 @@ app.post('/api/admin/tasks/list', async (req, res) => {
         
         const { data, error } = await query;
         if (error) throw error;
+        
+        if (data) {
+            data.forEach(t => {
+                t.reward_gram = parseFloat((t.reward_gram || 0).toFixed(5));
+            });
+        }
+        
         res.json({ success: true, data });
     } catch (error) {
         res.status(500).json({ success: false, error: error.message });
@@ -260,6 +312,11 @@ app.post('/api/admin/tasks/get', async (req, res) => {
             .eq('id', taskId)
             .single();
         if (error) throw error;
+        
+        if (data) {
+            data.reward_gram = parseFloat((data.reward_gram || 0).toFixed(5));
+        }
+        
         res.json({ success: true, data });
     } catch (error) {
         res.status(500).json({ success: false, error: error.message });
@@ -279,14 +336,21 @@ app.post('/api/admin/tasks/update', async (req, res) => {
             return res.status(400).json({ success: false, error: 'Invalid task URL' });
         }
         
+        const updateData = {
+            name, 
+            url
+        };
+        
+        if (rewardGram !== undefined) {
+            updateData.reward_gram = parseFloat(parseFloat(rewardGram).toFixed(5));
+        }
+        if (rewardGames !== undefined) {
+            updateData.reward_games = parseInt(rewardGames);
+        }
+        
         const { error } = await supabase
             .from('user_tasks')
-            .update({ 
-                name, 
-                url, 
-                reward_gram: rewardGram || 0.0001, 
-                reward_games: rewardGames || 1 
-            })
+            .update(updateData)
             .eq('id', taskId);
         if (error) throw error;
         res.json({ success: true });
@@ -327,13 +391,6 @@ app.post('/api/admin/tasks/update-status', async (req, res) => {
                 `<b>Status:</b> Active\n` +
                 `<b>ℹ️ You can now complete this task.</b>`
             );
-        } else if (status === 'rejected' && taskData.owner && validateUserId(taskData.owner)) {
-            await notifyUser(taskData.owner,
-                `<b>❌ Task Rejected</b>\n\n` +
-                `<b>Task:</b> ${taskData.name}\n` +
-                `<b>Status:</b> Rejected\n` +
-                `<b>ℹ️ Please check the task requirements.</b>`
-            );
         }
         
         res.json({ success: true });
@@ -373,6 +430,13 @@ app.post('/api/admin/withdrawals/list', async (req, res) => {
         
         const { data, error } = await query;
         if (error) throw error;
+        
+        if (data) {
+            data.forEach(w => {
+                w.amount = parseFloat((w.amount || 0).toFixed(5));
+            });
+        }
+        
         res.json({ success: true, data });
     } catch (error) {
         res.status(500).json({ success: false, error: error.message });
@@ -397,26 +461,39 @@ app.post('/api/admin/withdrawals/update-status', async (req, res) => {
         
         if (fetchError) throw fetchError;
         
-        const { error } = await supabase
-            .from('transactions')
-            .update({ status: status })
-            .eq('id', transactionId);
-        
-        if (error) throw error;
-        
         if (status === 'completed') {
+            const transferResult = await processXrocketTransfer(txData.user_id, txData.amount, 'GRAM TOWN Withdrawal');
+            
+            if (!transferResult.success) {
+                return res.status(400).json({ 
+                    success: false, 
+                    error: 'Transfer failed: ' + (transferResult.error || 'Unknown error') 
+                });
+            }
+            
+            await supabase
+                .from('transactions')
+                .update({ status: 'completed' })
+                .eq('id', transactionId);
+            
             await notifyUser(txData.user_id,
-                `<b>✅ Withdrawal Approved!</b>\n\n` +
-                `<b>💎 Amount:</b> ${txData.amount} GRAM\n` +
+                `<b>✅ Withdrawal Completed!</b>\n\n` +
+                `<b>💎 Amount:</b> ${parseFloat(txData.amount.toFixed(5))} GRAM\n` +
                 `<b>ℹ️ Check Your Funds on @XRocket</b>`
             );
+            
             await notifyAdmin(
                 `<b>💰 Withdrawal Completed</b>\n\n` +
                 `<b>User:</b> ${txData.user_id}\n` +
-                `<b>Amount:</b> ${txData.amount} GRAM`
+                `<b>Amount:</b> ${parseFloat(txData.amount.toFixed(5))} GRAM`
             );
-        } else if (status === 'rejected') {
+        } else {
+            const { error } = await supabase
+                .from('transactions')
+                .update({ status: status })
+                .eq('id', transactionId);
             
+            if (error) throw error;
         }
         
         res.json({ success: true });
@@ -458,7 +535,7 @@ app.post('/api/admin/promo/create', async (req, res) => {
         
         const promoData = {
             code: code.toUpperCase(),
-            reward: reward,
+            reward: parseFloat(parseFloat(reward).toFixed(5)),
             reward_type: rewardType,
             max_uses: maxUses || 999999,
             total: 0,
@@ -485,6 +562,13 @@ app.post('/api/admin/promo/list', async (req, res) => {
             .order('created_at', { ascending: false });
         
         if (error) throw error;
+        
+        if (data) {
+            data.forEach(p => {
+                p.reward = parseFloat((p.reward || 0).toFixed(5));
+            });
+        }
+        
         res.json({ success: true, data });
     } catch (error) {
         res.status(500).json({ success: false, error: error.message });
