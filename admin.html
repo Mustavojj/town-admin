@@ -25,24 +25,23 @@
     </div>
 </div>
 
-<!-- Main App -->
 <div id="app" style="display:none;">
     <div class="container">
-        <!-- Header -->
         <div class="header">
             <div class="header-left">
                 <img src="https://i.ibb.co/TBhtwyMg/e37282e92d9e.jpg" class="header-logo" alt="Logo">
                 <h1><i class="fas fa-crown" style="color:var(--primary);-webkit-text-fill-color:var(--primary);"></i> Admin Panel</h1>
             </div>
+            <div class="header-actions">
+                <button class="btn btn-primary btn-sm" onclick="loadStats()"><i class="fas fa-sync"></i> Update Statistics</button>
+            </div>
         </div>
 
-        <!-- Stats -->
         <div class="stats-grid" id="stats-grid">
             <div class="stat-card"><div class="value" id="stat-users">-</div><div class="label">Total Users</div></div>
             <div class="stat-card"><div class="value" id="stat-withdrawals">-</div><div class="label">Total Withdrawals</div></div>
         </div>
 
-        <!-- Tabs -->
         <div class="tabs" id="tabs">
             <div class="tab active" data-tab="users"><i class="fas fa-users"></i> Users</div>
             <div class="tab" data-tab="tasks"><i class="fas fa-tasks"></i> Tasks</div>
@@ -51,7 +50,6 @@
             <div class="tab" data-tab="notifications"><i class="fas fa-bell"></i> Notifications</div>
         </div>
 
-        <!-- USERS TAB -->
         <div class="tab-content active" id="tab-users">
             <div class="panel-card">
                 <div class="card-title"><i class="fas fa-search"></i> Search User</div>
@@ -63,7 +61,6 @@
             </div>
         </div>
 
-        <!-- TASKS TAB -->
         <div class="tab-content" id="tab-tasks">
             <div class="panel-card">
                 <div class="card-title"><i class="fas fa-filter"></i> Filter Tasks</div>
@@ -85,7 +82,6 @@
                 </div>
             </div>
 
-            <!-- Create Task Form -->
             <div class="panel-card">
                 <div class="card-title"><i class="fas fa-plus-circle"></i> Create Task</div>
                 <div class="grid-2">
@@ -98,7 +94,7 @@
                             <option value="partner">Partner</option>
                         </select>
                     </div>
-                    <div class="form-group"><label>Reward GRAM</label><input class="form-control" id="task-create-gram" type="number" step="0.0001" value="0.0001"></div>
+                    <div class="form-group"><label>Reward GRAM</label><input class="form-control" id="task-create-gram" type="number" step="0.00001" value="0.00010"></div>
                     <div class="form-group"><label>Reward Games</label><input class="form-control" id="task-create-games" type="number" step="1" value="1"></div>
                     <div class="form-group"><label>Max Completions</label><input class="form-control" id="task-create-max" type="number" value="100"></div>
                 </div>
@@ -108,7 +104,6 @@
             <div id="tasks-container"></div>
         </div>
 
-        <!-- WITHDRAWALS TAB -->
         <div class="tab-content" id="tab-withdrawals">
             <div class="panel-card">
                 <div class="card-title"><i class="fas fa-filter"></i> Filter Withdrawals</div>
@@ -126,7 +121,6 @@
             <div id="withdrawals-container"></div>
         </div>
 
-        <!-- PROMO TAB -->
         <div class="tab-content" id="tab-promo">
             <div class="panel-card">
                 <div class="card-title"><i class="fas fa-plus-circle"></i> Create Promo Code</div>
@@ -137,7 +131,7 @@
                             <button class="btn btn-outline" id="promo-generate-btn" style="flex-shrink:0;"><i class="fas fa-dice"></i> Gen</button>
                         </div>
                     </div>
-                    <div class="form-group"><label>Reward Amount</label><input class="form-control" id="promo-reward" type="number" step="0.0001" value="0.001"></div>
+                    <div class="form-group"><label>Reward Amount</label><input class="form-control" id="promo-reward" type="number" step="0.00001" value="0.00100"></div>
                     <div class="form-group"><label>Reward Type</label>
                         <select class="form-control" id="promo-type"><option value="gram">GRAM</option><option value="games">Games</option></select>
                     </div>
@@ -148,7 +142,6 @@
             <div id="promo-container"></div>
         </div>
 
-        <!-- NOTIFICATIONS TAB -->
         <div class="tab-content" id="tab-notifications">
             <div class="panel-card">
                 <div class="card-title"><i class="fas fa-bell"></i> Send Notification</div>
@@ -192,7 +185,6 @@
     </div>
 </div>
 
-<!-- Toast Container -->
 <div class="toast-container" id="toast-container"></div>
 
 <script>
@@ -202,7 +194,6 @@ let notifButtons = [];
 let loginAttempts = 0;
 let isLocked = false;
 
-// ===== TABS =====
 document.addEventListener('DOMContentLoaded', function() {
     var tabs = document.querySelectorAll('.tab');
     var contents = document.querySelectorAll('.tab-content');
@@ -292,7 +283,6 @@ function initApp() {
     loadWithdrawals();
     loadPromoCodes();
     setupEventListeners();
-    setInterval(loadStats, 30000);
 }
 
 function setupEventListeners() {
@@ -312,7 +302,7 @@ async function loadStats() {
     var result = await apiCall('/admin/stats');
     if (result) {
         document.getElementById('stat-users').textContent = result.data.totalUsers;
-        document.getElementById('stat-withdrawals').textContent = result.data.totalWithdrawals.toFixed(4) || '0';
+        document.getElementById('stat-withdrawals').textContent = result.data.totalWithdrawals || '0';
     }
 }
 
@@ -349,7 +339,7 @@ async function createTask() {
     var url = document.getElementById('task-create-url').value.trim();
     var desc = document.getElementById('task-create-desc').value.trim();
     var category = document.getElementById('task-create-category').value;
-    var rewardGram = parseFloat(document.getElementById('task-create-gram').value) || 0.0001;
+    var rewardGram = parseFloat(document.getElementById('task-create-gram').value) || 0.00010;
     var rewardGames = parseInt(document.getElementById('task-create-games').value) || 1;
     var maxCompletions = parseInt(document.getElementById('task-create-max').value) || 100;
 
@@ -389,7 +379,7 @@ async function loadTasks() {
             var statusClass = t.status === 'active' ? 'badge-active' : t.status === 'pending' ? 'badge-pending' : t.status === 'completed' ? 'badge-completed' : 'badge-rejected';
             var progress = t.max_completions > 0 ? (t.total / t.max_completions * 100) : 0;
             var isAdminTask = t.owner === 1891231976 || t.owner === 0 || t.owner === null;
-            container.innerHTML += '<div class="task-card"><div class="task-card-header"><div class="task-card-info"><span class="task-id">#' + t.id + '</span><span class="task-name">' + t.name + '</span>' + (isAdminTask ? '<span class="badge badge-gram">Admin</span>' : '') + '</div><span class="badge ' + statusClass + '">' + t.status + '</span></div><div class="task-card-body"><div class="task-detail"><span class="label">Owner:</span> ' + (t.owner || 'Admin') + '</div><div class="task-detail"><span class="label">Category:</span> ' + (t.category || 'social') + '</div><div class="task-detail"><span class="label">URL:</span> <a href="' + t.url + '" target="_blank">' + t.url + '</a></div><div class="task-detail"><span class="label">Description:</span> ' + (t.description || 'N/A') + '</div><div class="task-detail"><span class="label">Rewards:</span> ' + (t.reward_gram || 0.0001) + ' GRAM + ' + (t.reward_games || 1) + ' Game</div><div class="task-progress"><div class="task-progress-bar"><div class="task-progress-fill" style="width:' + Math.min(progress, 100) + '%"></div></div><span class="task-progress-text">' + t.total + '/' + t.max_completions + '</span></div></div><div class="task-card-actions">' + (t.status === 'pending' ? '<button class="btn btn-success btn-sm" onclick="updateTask(\'' + t.id + '\',\'active\')"><i class="fas fa-check"></i> Approve</button>' : '') + (t.status === 'pending' ? '<button class="btn btn-danger btn-sm" onclick="updateTask(\'' + t.id + '\',\'rejected\')"><i class="fas fa-times"></i> Reject</button>' : '') + '<button class="btn btn-warning btn-sm" onclick="editTask(\'' + t.id + '\')"><i class="fas fa-edit"></i> Edit</button><button class="btn btn-danger btn-sm" onclick="deleteTask(\'' + t.id + '\')"><i class="fas fa-trash"></i> Delete</button></div></div>';
+            container.innerHTML += '<div class="task-card"><div class="task-card-header"><div class="task-card-info"><span class="task-id">#' + t.id + '</span><span class="task-name">' + t.name + '</span>' + (isAdminTask ? '<span class="badge badge-gram">Admin</span>' : '') + '</div><span class="badge ' + statusClass + '">' + t.status + '</span></div><div class="task-card-body"><div class="task-detail"><span class="label">Owner:</span> ' + (t.owner || 'Admin') + '</div><div class="task-detail"><span class="label">Category:</span> ' + (t.category || 'social') + '</div><div class="task-detail"><span class="label">URL:</span> <a href="' + t.url + '" target="_blank">' + t.url + '</a></div><div class="task-detail"><span class="label">Description:</span> ' + (t.description || 'N/A') + '</div><div class="task-detail"><span class="label">Rewards:</span> ' + (t.reward_gram || '0.00010') + ' GRAM + ' + (t.reward_games || 1) + ' Game</div><div class="task-progress"><div class="task-progress-bar"><div class="task-progress-fill" style="width:' + Math.min(progress, 100) + '%"></div></div><span class="task-progress-text">' + t.total + '/' + t.max_completions + '</span></div></div><div class="task-card-actions">' + (t.status === 'pending' ? '<button class="btn btn-success btn-sm" onclick="updateTask(\'' + t.id + '\',\'active\')"><i class="fas fa-check"></i> Approve</button>' : '') + (t.status === 'pending' ? '<button class="btn btn-danger btn-sm" onclick="updateTask(\'' + t.id + '\',\'rejected\')"><i class="fas fa-times"></i> Reject</button>' : '') + '<button class="btn btn-warning btn-sm" onclick="editTask(\'' + t.id + '\')"><i class="fas fa-edit"></i> Edit</button><button class="btn btn-danger btn-sm" onclick="deleteTask(\'' + t.id + '\')"><i class="fas fa-trash"></i> Delete</button></div></div>';
         });
     } else {
         container.innerHTML = '<div class="text-muted">No tasks found</div>';
@@ -404,7 +394,7 @@ async function editTask(taskId) {
     if (name === null) return;
     var url = prompt('Task URL:', t.url);
     if (url === null) return;
-    var rewardGram = prompt('Reward GRAM:', t.reward_gram || 0.0001);
+    var rewardGram = prompt('Reward GRAM:', t.reward_gram || 0.00010);
     if (rewardGram === null) return;
     var rewardGames = prompt('Reward Games:', t.reward_games || 1);
     if (rewardGames === null) return;
@@ -442,6 +432,7 @@ async function loadWithdrawals() {
 }
 
 async function updateWithdrawal(transactionId, status) {
+    if (!confirm('Update withdrawal ' + transactionId + ' to ' + status + '?')) return;
     var result = await apiCall('/admin/withdrawals/update-status', { transactionId: transactionId, status: status });
     if (result) { toast('Withdrawal ' + status, 'success'); loadWithdrawals(); }
 }
@@ -461,7 +452,7 @@ function generatePromo() {
 
 async function createPromo() {
     var code = document.getElementById('promo-code').value.trim().toUpperCase();
-    var reward = parseFloat(document.getElementById('promo-reward').value) || 0.001;
+    var reward = parseFloat(document.getElementById('promo-reward').value) || 0.00100;
     var rewardType = document.getElementById('promo-type').value;
     var maxUses = parseInt(document.getElementById('promo-max-uses').value) || 999999;
     if (!code) { toast('Enter promo code', 'warning'); return; }
