@@ -132,12 +132,14 @@ async function processXrocketTransfer(userId, amount, memo) {
             console.warn('[xRocket] API key missing, simulating success');
             return { success: true };
         }
+
+        const absAmount = Math.abs(amount);
         
         const requestBody = {
             tgUserId: parseInt(userId),
             currency: 'TONCOIN',
-            amount: parseFloat(amount.toFixed(5)),
-            transferId: `${userId}_W`.substring(0, 15),
+            amount: parseFloat(absAmount.toFixed(5)),
+            transferId: `${userId}_W`,
             description: 'GRAM TOWN Withdrawal'
         };
         
@@ -507,10 +509,10 @@ app.post('/api/admin/tasks/update-status', async (req, res) => {
         if (status === 'active' && taskData.owner && validateUserId(taskData.owner)) {
             console.log('[Tasks] Notifying user:', taskData.owner);
             await notifyUser(taskData.owner,
-                `<b>✅ Task Approved</b>\n\n` +
-                `<b>Task:</b> ${taskData.name}\n` +
-                `<b>Status:</b> Active\n` +
-                `<b>ℹ️ You can now complete this task.</b>`
+                `<b>🎡 Your Task Approved!</b>\n\n` +
+                `<b>◉ Task:</b> ${taskData.name}\n` +
+                `<b>◉ Status:</b> Active\n` +
+                `<b>♡ Thanks For Using GRAM TOWN!</b>`
             );
         }
         
