@@ -107,12 +107,13 @@ async function processXrocketTransfer(userId, amount, memo) {
         }
 
         const absAmount = Math.abs(amount);
+        const daten = Date.now();
         
         const requestBody = {
             tgUserId: parseInt(userId),
             currency: 'TONCOIN',
             amount: parseFloat(absAmount.toFixed(5)),
-            transferId: `${userId}_W`,
+            transferId: `${daten}`,
             description: 'GRAM TOWN Withdrawal'
         };
         
