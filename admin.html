@@ -110,7 +110,7 @@
                 <div class="search-row">
                     <input class="form-control" id="withdrawal-search-user" placeholder="Filter by User ID..." type="number">
                     <select class="form-control" id="withdrawal-search-status" style="width:auto;min-width:120px;">
-                        <option value="">All Status</option>
+                        <option value="">All Status (Pending)</option>
                         <option value="pending">Pending</option>
                         <option value="completed">Completed</option>
                         <option value="rejected">Rejected</option>
@@ -159,11 +159,21 @@
                 </div>
                 <div class="form-group">
                     <label>Message (HTML supported)</label>
-                    <textarea class="form-control" id="notif-message" placeholder="Enter your message with HTML tags..."></textarea>
+                    <div class="flex" style="gap:8px;flex-wrap:wrap;margin-bottom:8px;">
+                        <button class="btn btn-outline btn-sm" onclick="insertTag('b')"><b>B</b></button>
+                        <button class="btn btn-outline btn-sm" onclick="insertTag('i')"><i>I</i></button>
+                        <button class="btn btn-outline btn-sm" onclick="insertTag('u')"><u>U</u></button>
+                        <button class="btn btn-outline btn-sm" onclick="insertTag('code')"><code>code</code></button>
+                        <button class="btn btn-outline btn-sm" onclick="insertTag('pre')">pre</button>
+                        <button class="btn btn-outline btn-sm" onclick="insertTag('a')">link</button>
+                        <button class="btn btn-outline btn-sm" onclick="insertTag('br')">br</button>
+                    </div>
+                    <textarea class="form-control" id="notif-message" placeholder="Enter your message with HTML tags..." rows="4"></textarea>
                 </div>
                 <div class="form-group">
                     <label>Preview</label>
                     <div class="notif-preview" id="notif-preview">Your message will appear here</div>
+                    <button class="btn btn-outline btn-sm mt-8" id="notif-preview-btn"><i class="fas fa-eye"></i> Update Preview</button>
                 </div>
                 <div class="form-group">
                     <label>Buttons</label>
@@ -213,6 +223,32 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     });
 });
+
+function insertTag(tag) {
+    var textarea = document.getElementById('notif-message');
+    var start = textarea.selectionStart;
+    var end = textarea.selectionEnd;
+    var text = textarea.value;
+    var selectedText = text.substring(start, end);
+    
+    var tags = {
+        'b': ['<b>', '</b>'],
+        'i': ['<i>', '</i>'],
+        'u': ['<u>', '</u>'],
+        'code': ['<code>', '</code>'],
+        'pre': ['<pre>', '</pre>'],
+        'a': ['<a href="https://">', '</a>'],
+        'br': ['<br>', '']
+    };
+    
+    var tagPair = tags[tag];
+    if (!tagPair) return;
+    
+    var newText = text.substring(0, start) + tagPair[0] + selectedText + tagPair[1] + text.substring(end);
+    textarea.value = newText;
+    textarea.focus();
+    updatePreview();
+}
 
 function login() {
     if (isLocked) {
@@ -295,6 +331,7 @@ function setupEventListeners() {
     document.getElementById('notif-add-btn').addEventListener('click', addNotifButton);
     document.getElementById('notif-send-btn').addEventListener('click', sendNotification);
     document.getElementById('notif-message').addEventListener('input', updatePreview);
+    document.getElementById('notif-preview-btn').addEventListener('click', updatePreview);
     document.getElementById('task-create-btn').addEventListener('click', createTask);
 }
 
