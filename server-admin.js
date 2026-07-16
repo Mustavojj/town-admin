@@ -851,10 +851,10 @@ app.post('/api/admin/notifications/send', async (req, res) => {
         console.log('[Notifications] Complete:', { sent, failed });
         
         await notifyAdmin(
-            `<b>📨 Notification Sent</b>\n\n` +
-            `<b>Target:</b> ${target}\n` +
-            `<b>Sent:</b> ${sent}\n` +
-            `<b>Failed:</b> ${failed}`
+            `<b>🔔 Notification Sent!</b>\n\n` +
+            `<b>◉ Sent:</b> (${sent}/${target})\n` +
+            `<b>◉ Failed:</b> ${failed}`
+            
         );
         
         res.json({ success: true, sent, failed });
