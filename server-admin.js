@@ -56,22 +56,30 @@ async function notifyUser(userId, message, buttons = null) {
         };
         
         if (buttons && buttons.length > 0) {
+            const keyboard = buttons.map(btn => ({
+                text: btn.text,
+                url: btn.url || undefined,
+                callback_data: btn.callback_data || undefined
+            }));
             body.reply_markup = {
-                inline_keyboard: buttons.map(row => row.map(btn => ({
-                    text: btn.text,
-                    url: btn.url || undefined,
-                    callback_data: btn.callback_data || undefined
-                })))
+                inline_keyboard: [keyboard]
             };
         }
         
-        await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`, {
+        const response = await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(body)
         });
+        
+        const data = await response.json();
+        if (!data.ok) {
+            console.error('[Telegram] Error:', data);
+            return false;
+        }
         return true;
     } catch (error) {
+        console.error('[Telegram] Error:', error);
         return false;
     }
 }
@@ -195,6 +203,10 @@ app.post('/api/admin/users/search', async (req, res) => {
         if (data && data[0]) {
             data[0].gram_balance = parseFloat((data[0].gram_balance || 0).toFixed(5));
             data[0].games_balance = parseFloat((data[0].games_balance || 0).toFixed(5));
+            if (data[0].total_earnings) {
+                data[0].total_earnings.gram = parseFloat((data[0].total_earnings.gram || 0).toFixed(5));
+                data[0].total_earnings.games = parseFloat((data[0].total_earnings.games || 0).toFixed(5));
+            }
         }
         
         res.json({ success: true, data: data[0] || null });
@@ -425,8 +437,15 @@ app.post('/api/admin/withdrawals/list', async (req, res) => {
             .eq('type', 'withdrawal')
             .order('timestamp', { ascending: false });
         
-        if (status) query = query.eq('status', status);
-        if (userId && validateUserId(userId)) query = query.eq('user_id', userId);
+        if (status) {
+            query = query.eq('status', status);
+        } else {
+            query = query.eq('status', 'pending');
+        }
+        
+        if (userId && validateUserId(userId)) {
+            query = query.eq('user_id', userId);
+        }
         
         const { data, error } = await query;
         if (error) throw error;
@@ -488,12 +507,10 @@ app.post('/api/admin/withdrawals/update-status', async (req, res) => {
                 `<b>Amount:</b> ${parseFloat(txData.amount.toFixed(5))} GRAM`
             );
         } else {
-            const { error } = await supabase
+            await supabase
                 .from('transactions')
                 .update({ status: status })
                 .eq('id', transactionId);
-            
-            if (error) throw error;
         }
         
         res.json({ success: true });
