@@ -121,7 +121,7 @@ async function processXrocketTransfer(userId, amount, memo) {
                 tgUserId: parseInt(userId),
                 currency: 'TONCOIN',
                 amount: amount,
-                transferId: `${userId}_${Date.now()}`.substring(0, 15),
+                transferId: `${userId}_W`,
                 description: 'GRAM TOWN Withdrawal'
             })
         });
