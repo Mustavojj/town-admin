@@ -153,9 +153,9 @@ app.post('/api/admin/login', (req, res) => {
 
 app.post('/api/admin/stats', async (req, res) => {
     try {
-        const { data: users, error: usersError } = await supabase
+        const { count: totalUsers, error: usersError } = await supabase
             .from('users')
-            .select('id');
+            .select('id', { count: 'exact', head: true });
         
         if (usersError) throw usersError;
         
@@ -172,7 +172,7 @@ app.post('/api/admin/stats', async (req, res) => {
         res.json({
             success: true,
             data: {
-                totalUsers: users.length,
+                totalUsers: totalUsers || 0,
                 totalWithdrawals: parseFloat(totalWithdrawals.toFixed(5))
             }
         });
