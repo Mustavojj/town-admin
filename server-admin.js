@@ -44,101 +44,25 @@ function validateNumber(value, min = 0, max = Infinity) {
     return typeof value === 'number' && value >= min && value <= max;
 }
 
-async function notifyUser(userId, message, buttons = null) {
+async function notifyUser(userId, message) {
     try {
         const BOT_TOKEN = process.env.BOT_TOKEN;
         if (!BOT_TOKEN) return false;
         
-        const body = {
-            chat_id: userId,
-            text: message,
-            parse_mode: 'HTML'
-        };
-        
-        if (buttons && buttons.length > 0) {
-            const keyboard = buttons.map(btn => ({
-                text: btn.text,
-                url: btn.url || undefined,
-                callback_data: btn.callback_data || undefined
-            }));
-            body.reply_markup = {
-                inline_keyboard: [keyboard]
-            };
-        }
-        
         const response = await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(body)
-        });
-        
-        const data = await response.json();
-        if (!data.ok) return false;
-        return true;
-    } catch (error) {
-        return false;
-    }
-}
-
-async function notifyAdmin(message) {
-    try {
-        const adminId = process.env.ADMIN_CHAT_ID;
-        if (!adminId) return;
-        const BOT_TOKEN = process.env.BOT_TOKEN;
-        if (!BOT_TOKEN) return;
-        await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
-                chat_id: adminId,
+                chat_id: userId,
                 text: message,
                 parse_mode: 'HTML'
             })
         });
-    } catch (error) {
-        return;
-    }
-}
-
-async function processXrocketTransfer(userId, amount, memo) {
-    try {
-        if (!process.env.XROCKET_API_KEY) {
-            return { success: true };
-        }
-
-        const absAmount = Math.abs(amount);
-        const daten = Date.now();
         
-        const requestBody = {
-            tgUserId: parseInt(userId),
-            currency: 'TONCOIN',
-            amount: parseFloat(absAmount.toFixed(5)),
-            transferId: `${daten}`,
-            description: 'GRAM TOWN Withdrawal'
-        };
-        
-        const response = await fetch('https://pay.xrocket.exchange/app/transfer', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'Rocket-Pay-Key': process.env.XROCKET_API_KEY
-            },
-            body: JSON.stringify(requestBody)
-        });
-
         const data = await response.json();
-
-        if (data.success) {
-            return { success: true };
-        } else {
-            return { 
-                success: false, 
-                error: data.message || 'Transfer failed',
-                details: data
-            };
-        }
+        return data.ok;
     } catch (error) {
-        return { success: false, error: error.message };
+        return false;
     }
 }
 
@@ -169,11 +93,20 @@ app.post('/api/admin/stats', async (req, res) => {
         
         const totalWithdrawals = transactions.reduce((sum, t) => sum + Math.abs(t.amount || 0), 0);
         
+        const { data: ticketsData, error: ticketsError } = await supabase
+            .from('users')
+            .select('ticket_balance');
+        
+        if (ticketsError) throw ticketsError;
+        
+        const totalTickets = ticketsData.reduce((sum, u) => sum + (u.ticket_balance || 0), 0);
+        
         res.json({
             success: true,
             data: {
                 totalUsers: totalUsers || 0,
-                totalWithdrawals: parseFloat(totalWithdrawals.toFixed(5))
+                totalWithdrawals: parseFloat(totalWithdrawals.toFixed(5)),
+                totalTickets: totalTickets
             }
         });
     } catch (error) {
@@ -186,7 +119,7 @@ app.post('/api/admin/users/search', async (req, res) => {
         const { userId } = req.body;
         let query = supabase
             .from('users')
-            .select('id, first_name, username, gram_balance, games_balance, total_referrals, active_referrals, total_earnings, state');
+            .select('id, first_name, username, gram_balance, ticket_balance, total_referrals, active_referrals, total_earnings, claimable_earnings, state');
         
         if (typeof userId === 'number' && userId > 0) {
             query = query.eq('id', userId);
@@ -201,10 +134,10 @@ app.post('/api/admin/users/search', async (req, res) => {
         
         if (data && data[0]) {
             data[0].gram_balance = parseFloat((data[0].gram_balance || 0).toFixed(5));
-            data[0].games_balance = parseFloat((data[0].games_balance || 0).toFixed(5));
-            if (data[0].total_earnings) {
-                data[0].total_earnings.gram = parseFloat((data[0].total_earnings.gram || 0).toFixed(5));
-                data[0].total_earnings.games = parseFloat((data[0].total_earnings.games || 0).toFixed(5));
+            data[0].ticket_balance = data[0].ticket_balance || 0;
+            if (data[0].claimable_earnings) {
+                data[0].claimable_earnings.gram = parseFloat((data[0].claimable_earnings.gram || 0).toFixed(5));
+                data[0].claimable_earnings.tickets = data[0].claimable_earnings.tickets || 0;
             }
         }
         
@@ -248,12 +181,106 @@ app.post('/api/admin/users/unban', async (req, res) => {
     }
 });
 
+app.post('/api/admin/balance/add', async (req, res) => {
+    try {
+        const { userId, amount, type } = req.body;
+        
+        if (!validateUserId(userId)) {
+            return res.status(400).json({ success: false, error: 'Invalid user ID' });
+        }
+        if (!validateNumber(amount, 0.000001)) {
+            return res.status(400).json({ success: false, error: 'Invalid amount' });
+        }
+        if (!['gram_balance', 'ticket_balance'].includes(type)) {
+            return res.status(400).json({ success: false, error: 'Invalid balance type' });
+        }
+        
+        const { data: userData, error: fetchError } = await supabase
+            .from('users')
+            .select(type)
+            .eq('id', userId)
+            .single();
+        
+        if (fetchError || !userData) {
+            return res.status(404).json({ success: false, error: 'User not found' });
+        }
+        
+        const currentBalance = userData[type] || 0;
+        const newBalance = type === 'gram_balance' 
+            ? parseFloat((currentBalance + amount).toFixed(5))
+            : currentBalance + amount;
+        
+        const { error } = await supabase
+            .from('users')
+            .update({ [type]: newBalance })
+            .eq('id', userId);
+        
+        if (error) throw error;
+        
+        res.json({ success: true, newBalance });
+    } catch (error) {
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
+app.post('/api/admin/balance/deduct', async (req, res) => {
+    try {
+        const { userId, amount, type } = req.body;
+        
+        if (!validateUserId(userId)) {
+            return res.status(400).json({ success: false, error: 'Invalid user ID' });
+        }
+        if (!validateNumber(amount, 0.000001)) {
+            return res.status(400).json({ success: false, error: 'Invalid amount' });
+        }
+        if (!['gram_balance', 'ticket_balance'].includes(type)) {
+            return res.status(400).json({ success: false, error: 'Invalid balance type' });
+        }
+        
+        const { data: userData, error: fetchError } = await supabase
+            .from('users')
+            .select(type)
+            .eq('id', userId)
+            .single();
+        
+        if (fetchError || !userData) {
+            return res.status(404).json({ success: false, error: 'User not found' });
+        }
+        
+        const currentBalance = userData[type] || 0;
+        if (currentBalance < amount) {
+            return res.status(400).json({ success: false, error: 'Insufficient balance' });
+        }
+        
+        const newBalance = type === 'gram_balance' 
+            ? parseFloat((currentBalance - amount).toFixed(5))
+            : currentBalance - amount;
+        
+        const { error } = await supabase
+            .from('users')
+            .update({ [type]: newBalance })
+            .eq('id', userId);
+        
+        if (error) throw error;
+        
+        res.json({ success: true, newBalance });
+    } catch (error) {
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
 app.post('/api/admin/tasks/create', async (req, res) => {
     try {
-        const { name, url, description, category, rewardGram, rewardGames, maxCompletions, owner } = req.body;
+        const { name, url, description, category, rewardGram, maxCompletions, owner } = req.body;
         
         if (!name || !url || !description) {
             return res.status(400).json({ success: false, error: 'Missing required fields' });
+        }
+        if (!validateNumber(rewardGram, 0)) {
+            return res.status(400).json({ success: false, error: 'Invalid reward amount' });
+        }
+        if (!validateNumber(maxCompletions, 1)) {
+            return res.status(400).json({ success: false, error: 'Invalid max completions' });
         }
         
         const taskData = {
@@ -263,12 +290,12 @@ app.post('/api/admin/tasks/create', async (req, res) => {
             description,
             category: category || 'social',
             reward_gram: parseFloat((rewardGram || 0.0001).toFixed(5)),
-            reward_games: rewardGames || 1,
             max_completions: maxCompletions || 100,
             total: 0,
             status: 'active',
             owner: owner || 1891231976,
-            created_at: Date.now()
+            created_at: Date.now(),
+            verification: true
         };
         
         const { data, error } = await supabase
@@ -311,58 +338,27 @@ app.post('/api/admin/tasks/list', async (req, res) => {
     }
 });
 
-app.post('/api/admin/tasks/get', async (req, res) => {
-    try {
-        const { taskId } = req.body;
-        if (!validateString(taskId, 50)) {
-            return res.status(400).json({ success: false, error: 'Invalid task ID' });
-        }
-        const { data, error } = await supabase
-            .from('user_tasks')
-            .select('*')
-            .eq('id', taskId)
-            .single();
-        if (error) throw error;
-        
-        if (data) {
-            data.reward_gram = parseFloat((data.reward_gram || 0).toFixed(5));
-        }
-        
-        res.json({ success: true, data });
-    } catch (error) {
-        res.status(500).json({ success: false, error: error.message });
-    }
-});
-
 app.post('/api/admin/tasks/update', async (req, res) => {
     try {
-        const { taskId, name, url, rewardGram, rewardGames } = req.body;
-        if (!validateString(taskId, 50)) {
-            return res.status(400).json({ success: false, error: 'Invalid task ID' });
-        }
-        if (!validateString(name, 50)) {
-            return res.status(400).json({ success: false, error: 'Invalid task name' });
-        }
-        if (!validateString(url, 255)) {
-            return res.status(400).json({ success: false, error: 'Invalid task URL' });
+        const { taskId, name, url, description, rewardGram } = req.body;
+        
+        if (!taskId) {
+            return res.status(400).json({ success: false, error: 'Task ID required' });
         }
         
-        const updateData = {
-            name, 
-            url
-        };
-        
+        const updateData = {};
+        if (name) updateData.name = name;
+        if (url) updateData.url = url;
+        if (description) updateData.description = description;
         if (rewardGram !== undefined) {
             updateData.reward_gram = parseFloat(parseFloat(rewardGram).toFixed(5));
-        }
-        if (rewardGames !== undefined) {
-            updateData.reward_games = parseInt(rewardGames);
         }
         
         const { error } = await supabase
             .from('user_tasks')
             .update(updateData)
             .eq('id', taskId);
+        
         if (error) throw error;
         res.json({ success: true });
     } catch (error) {
@@ -373,8 +369,9 @@ app.post('/api/admin/tasks/update', async (req, res) => {
 app.post('/api/admin/tasks/update-status', async (req, res) => {
     try {
         const { taskId, status } = req.body;
-        if (!validateString(taskId, 50)) {
-            return res.status(400).json({ success: false, error: 'Invalid task ID' });
+        
+        if (!taskId) {
+            return res.status(400).json({ success: false, error: 'Task ID required' });
         }
         if (!['pending', 'active', 'rejected', 'completed'].includes(status)) {
             return res.status(400).json({ success: false, error: 'Invalid status' });
@@ -397,9 +394,10 @@ app.post('/api/admin/tasks/update-status', async (req, res) => {
         
         if (status === 'active' && taskData.owner && validateUserId(taskData.owner)) {
             await notifyUser(taskData.owner,
-                `<b>📋 Your Task Approved!</b>\n\n` +
-                `<b>◉ Task:</b> ${taskData.name}\n` +
-                `<b>◉ Status:</b> Active`
+                `<b>✅ Task Approved</b>\n\n` +
+                `<b>Task:</b> ${taskData.name}\n` +
+                `<b>Status:</b> Active\n` +
+                `<b>ℹ️ You can now complete this task.</b>`
             );
         }
         
@@ -412,8 +410,8 @@ app.post('/api/admin/tasks/update-status', async (req, res) => {
 app.post('/api/admin/tasks/delete', async (req, res) => {
     try {
         const { taskId } = req.body;
-        if (!validateString(taskId, 50)) {
-            return res.status(400).json({ success: false, error: 'Invalid task ID' });
+        if (!taskId) {
+            return res.status(400).json({ success: false, error: 'Task ID required' });
         }
         const { error } = await supabase
             .from('user_tasks')
@@ -463,10 +461,11 @@ app.post('/api/admin/withdrawals/list', async (req, res) => {
 app.post('/api/admin/withdrawals/update-status', async (req, res) => {
     try {
         const { transactionId, status } = req.body;
-        if (!validateString(transactionId, 50)) {
-            return res.status(400).json({ success: false, error: 'Invalid transaction ID' });
+        
+        if (!transactionId) {
+            return res.status(400).json({ success: false, error: 'Transaction ID required' });
         }
-        if (!['pending', 'completed', 'rejected'].includes(status)) {
+        if (!['pending', 'completed', 'rejected', 'failed'].includes(status)) {
             return res.status(400).json({ success: false, error: 'Invalid status' });
         }
         
@@ -478,52 +477,24 @@ app.post('/api/admin/withdrawals/update-status', async (req, res) => {
         
         if (fetchError) throw fetchError;
         
+        const absAmount = -Math.abs(txData.amount || 0);
+        
+        const { error } = await supabase
+            .from('transactions')
+            .update({ 
+                status: status,
+                amount: parseFloat(absAmount.toFixed(5))
+            })
+            .eq('id', transactionId);
+        
+        if (error) throw error;
+        
         if (status === 'completed') {
-            const transferResult = await processXrocketTransfer(txData.user_id, txData.amount, 'GRAM TOWN Withdrawal');
-            
-            if (!transferResult.success) {
-                return res.status(400).json({ 
-                    success: false, 
-                    error: 'Transfer failed: ' + (transferResult.error || 'Unknown error'),
-                    details: transferResult.details || null
-                });
-            }
-            
-            const absAmount = -Math.abs(txData.amount || 0);
-            
-            const { error } = await supabase
-                .from('transactions')
-                .update({ 
-                    status: 'completed',
-                    amount: parseFloat(absAmount.toFixed(5))
-                })
-                .eq('id', transactionId);
-            
-            if (error) throw error;
-            
             await notifyUser(txData.user_id,
                 `<b>✅ Withdrawal Completed!</b>\n\n` +
                 `<b>💎 Amount:</b> ${parseFloat(Math.abs(txData.amount).toFixed(5))} GRAM\n` +
                 `<b>ℹ️ Check Your Funds on @XRocket</b>`
             );
-            
-            await notifyAdmin(
-                `<b>💰 Withdrawal Completed</b>\n\n` +
-                `<b>User:</b> ${txData.user_id}\n` +
-                `<b>Amount:</b> ${parseFloat(Math.abs(txData.amount).toFixed(5))} GRAM`
-            );
-        } else {
-            const absAmount = -Math.abs(txData.amount || 0);
-            
-            const { error } = await supabase
-                .from('transactions')
-                .update({ 
-                    status: status,
-                    amount: parseFloat(absAmount.toFixed(5))
-                })
-                .eq('id', transactionId);
-            
-            if (error) throw error;
         }
         
         res.json({ success: true });
@@ -535,8 +506,8 @@ app.post('/api/admin/withdrawals/update-status', async (req, res) => {
 app.post('/api/admin/withdrawals/delete', async (req, res) => {
     try {
         const { transactionId } = req.body;
-        if (!validateString(transactionId, 50)) {
-            return res.status(400).json({ success: false, error: 'Invalid transaction ID' });
+        if (!transactionId) {
+            return res.status(400).json({ success: false, error: 'Transaction ID required' });
         }
         const { error } = await supabase
             .from('transactions')
@@ -553,13 +524,13 @@ app.post('/api/admin/promo/create', async (req, res) => {
     try {
         const { code, reward, rewardType, maxUses } = req.body;
         
-        if (!validateString(code, 50)) {
-            return res.status(400).json({ success: false, error: 'Invalid promo code' });
+        if (!code || !reward) {
+            return res.status(400).json({ success: false, error: 'Missing required fields' });
         }
         if (!validateNumber(reward, 0.0001)) {
             return res.status(400).json({ success: false, error: 'Invalid reward amount' });
         }
-        if (!['gram', 'games'].includes(rewardType)) {
+        if (!['gram', 'tickets'].includes(rewardType)) {
             return res.status(400).json({ success: false, error: 'Invalid reward type' });
         }
         
@@ -608,15 +579,13 @@ app.post('/api/admin/promo/list', async (req, res) => {
 app.post('/api/admin/promo/delete', async (req, res) => {
     try {
         const { code } = req.body;
-        if (!validateString(code, 50)) {
-            return res.status(400).json({ success: false, error: 'Invalid promo code' });
+        if (!code) {
+            return res.status(400).json({ success: false, error: 'Code required' });
         }
-        
         const { error } = await supabase
             .from('promo_codes')
             .delete()
             .eq('code', code);
-        
         if (error) throw error;
         res.json({ success: true });
     } catch (error) {
@@ -626,10 +595,14 @@ app.post('/api/admin/promo/delete', async (req, res) => {
 
 app.post('/api/admin/notifications/send', async (req, res) => {
     try {
-        const { userId, message, buttons, target } = req.body;
+        const { userId, message, target } = req.body;
+        const BOT_TOKEN = process.env.BOT_TOKEN;
         
-        if (!validateString(message, 4096)) {
-            return res.status(400).json({ success: false, error: 'Invalid message' });
+        if (!BOT_TOKEN) {
+            return res.status(400).json({ success: false, error: 'Bot not configured' });
+        }
+        if (!message) {
+            return res.status(400).json({ success: false, error: 'Message required' });
         }
         
         let users = [];
@@ -644,7 +617,7 @@ app.post('/api/admin/notifications/send', async (req, res) => {
         } else if (target === 'single' && validateUserId(userId)) {
             users = [userId];
         } else {
-            return res.status(400).json({ success: false, error: 'Invalid target or user ID' });
+            return res.status(400).json({ success: false, error: 'Invalid target' });
         }
         
         let sent = 0;
@@ -655,20 +628,23 @@ app.post('/api/admin/notifications/send', async (req, res) => {
             const batch = users.slice(i, i + batchSize);
             await Promise.all(batch.map(async (uid) => {
                 try {
-                    const success = await notifyUser(uid, message, buttons);
-                    if (success) sent++;
+                    const response = await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            chat_id: uid,
+                            text: message,
+                            parse_mode: 'HTML'
+                        })
+                    });
+                    const data = await response.json();
+                    if (data.ok) sent++;
                     else failed++;
                 } catch (error) {
                     failed++;
                 }
             }));
         }
-        
-         await notifyAdmin(
-            `<b>🔔 Notification Sent!</b>\n\n` +
-            `<b>◉ Sent:</b> (${sent}/${target})\n` +
-            `<b>◉ Failed:</b> ${failed}`
-         );
         
         res.json({ success: true, sent, failed });
     } catch (error) {
@@ -686,7 +662,7 @@ app.get('*', (req, res) => {
     }
 });
 
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 8080;
 app.listen(PORT, () => {
     console.log(`Admin Panel running on port ${PORT}`);
 });
