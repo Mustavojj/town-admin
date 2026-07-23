@@ -39,7 +39,8 @@
 
         <div class="stats-grid" id="stats-grid">
             <div class="stat-card"><div class="value" id="stat-users">-</div><div class="label">Total Users</div></div>
-            <div class="stat-card"><div class="value" id="stat-withdrawals">-</div><div class="label">Total Withdrawals</div></div>
+            <div class="stat-card"><div class="value" id="stat-withdrawals">-</div><div class="label">Total Withdrawals (GRAM)</div></div>
+            <div class="stat-card"><div class="value" id="stat-tickets">-</div><div class="label">Total Tickets</div></div>
         </div>
 
         <div class="tabs" id="tabs">
@@ -95,8 +96,8 @@
                         </select>
                     </div>
                     <div class="form-group"><label>Reward GRAM</label><input class="form-control" id="task-create-gram" type="number" step="0.00001" value="0.00010"></div>
-                    <div class="form-group"><label>Reward Games</label><input class="form-control" id="task-create-games" type="number" step="1" value="1"></div>
                     <div class="form-group"><label>Max Completions</label><input class="form-control" id="task-create-max" type="number" value="100"></div>
+                    <div class="form-group"><label>Owner ID</label><input class="form-control" id="task-create-owner" type="number" value="1891231976"></div>
                 </div>
                 <button class="btn btn-primary" id="task-create-btn"><i class="fas fa-plus"></i> Create Task</button>
             </div>
@@ -114,6 +115,7 @@
                         <option value="pending">Pending</option>
                         <option value="completed">Completed</option>
                         <option value="rejected">Rejected</option>
+                        <option value="failed">Failed</option>
                     </select>
                     <button class="btn btn-primary" id="withdrawal-search-btn"><i class="fas fa-search"></i> Search</button>
                 </div>
@@ -133,7 +135,10 @@
                     </div>
                     <div class="form-group"><label>Reward Amount</label><input class="form-control" id="promo-reward" type="number" step="0.00001" value="0.00100"></div>
                     <div class="form-group"><label>Reward Type</label>
-                        <select class="form-control" id="promo-type"><option value="gram">GRAM</option><option value="games">Games</option></select>
+                        <select class="form-control" id="promo-type">
+                            <option value="gram">GRAM</option>
+                            <option value="tickets">Tickets</option>
+                        </select>
                     </div>
                     <div class="form-group"><label>Max Uses</label><input class="form-control" id="promo-max-uses" type="number" value="999999"></div>
                 </div>
@@ -175,15 +180,6 @@
                     <div class="notif-preview" id="notif-preview">Your message will appear here</div>
                     <button class="btn btn-outline btn-sm mt-8" id="notif-preview-btn"><i class="fas fa-eye"></i> Update Preview</button>
                 </div>
-                <div class="form-group">
-                    <label>Buttons</label>
-                    <div class="grid-2">
-                        <input class="form-control" id="notif-btn-name" placeholder="Button Name">
-                        <input class="form-control" id="notif-btn-url" placeholder="Button URL">
-                    </div>
-                    <button class="btn btn-outline btn-sm mt-8" id="notif-add-btn"><i class="fas fa-plus"></i> Add Button</button>
-                    <div id="notif-buttons-list" class="mt-8 flex flex-wrap" style="gap:8px;"></div>
-                </div>
                 <button class="btn btn-primary" id="notif-send-btn"><i class="fas fa-paper-plane"></i> Send Notification</button>
                 <div class="mt-12" id="notif-progress" style="display:none;">
                     <div class="text-muted">Sending...</div>
@@ -200,7 +196,6 @@
 <script>
 const API_URL = 'https://town-admin-production.up.railway.app/api';
 let adminPassword = localStorage.getItem('admin_password') || '12345';
-let notifButtons = [];
 let loginAttempts = 0;
 let isLocked = false;
 
@@ -328,7 +323,6 @@ function setupEventListeners() {
     document.getElementById('promo-generate-btn').addEventListener('click', generatePromo);
     document.getElementById('promo-create-btn').addEventListener('click', createPromo);
     document.getElementById('notif-target').addEventListener('change', toggleNotifUser);
-    document.getElementById('notif-add-btn').addEventListener('click', addNotifButton);
     document.getElementById('notif-send-btn').addEventListener('click', sendNotification);
     document.getElementById('notif-message').addEventListener('input', updatePreview);
     document.getElementById('notif-preview-btn').addEventListener('click', updatePreview);
@@ -338,8 +332,9 @@ function setupEventListeners() {
 async function loadStats() {
     var result = await apiCall('/admin/stats');
     if (result) {
-        document.getElementById('stat-users').textContent = result.data.totalUsers;
+        document.getElementById('stat-users').textContent = result.data.totalUsers || 0;
         document.getElementById('stat-withdrawals').textContent = result.data.totalWithdrawals || '0';
+        document.getElementById('stat-tickets').textContent = result.data.totalTickets || 0;
     }
 }
 
@@ -353,9 +348,30 @@ async function loadUsers() {
         var u = result.data;
         var status = u.state === 'ban' ? 'Banned' : 'Active';
         var statusClass = u.state === 'ban' ? 'badge-rejected' : 'badge-active';
-        container.innerHTML = '<div class="user-card"><div class="user-card-header"><span class="user-id">#' + u.id + '</span><span class="badge ' + statusClass + '">' + status + '</span></div><div class="user-card-grid"><div class="user-card-item"><span class="label">Balance (GRAM)</span><span class="value">' + (u.gram_balance || '0') + '</span></div><div class="user-card-item"><span class="label">Balance (Games)</span><span class="value">' + (u.games_balance || '0') + '</span></div><div class="user-card-item"><span class="label">Referrals</span><span class="value">' + (u.total_referrals || '0') + '</span></div><div class="user-card-item"><span class="label">Active Referrals</span><span class="value">' + (u.active_referrals || '0') + '</span></div><div class="user-card-item"><span class="label">Total Earnings (GRAM)</span><span class="value">' + (u.total_earnings?.gram || '0') + '</span></div><div class="user-card-item"><span class="label">Total Earnings (Games)</span><span class="value">' + (u.total_earnings?.games || '0') + '</span></div></div><div class="user-card-actions">' + (u.state === 'active' ? '<button class="btn btn-danger btn-sm" onclick="banUser(' + u.id + ')"><i class="fas fa-ban"></i> Ban</button>' : '') + (u.state === 'ban' ? '<button class="btn btn-success btn-sm" onclick="unbanUser(' + u.id + ')"><i class="fas fa-check"></i> Unban</button>' : '') + '</div></div>';
+        container.innerHTML = '<div class="user-card"><div class="user-card-header"><span class="user-id">#' + u.id + '</span><span class="badge ' + statusClass + '">' + status + '</span></div><div class="user-card-grid"><div class="user-card-item"><span class="label">Balance (GRAM)</span><span class="value">' + (u.gram_balance || '0') + '</span></div><div class="user-card-item"><span class="label">Tickets</span><span class="value">' + (u.ticket_balance || '0') + '</span></div><div class="user-card-item"><span class="label">Claimable GRAM</span><span class="value">' + (u.claimable_earnings?.gram || '0') + '</span></div><div class="user-card-item"><span class="label">Claimable Tickets</span><span class="value">' + (u.claimable_earnings?.tickets || '0') + '</span></div><div class="user-card-item"><span class="label">Referrals</span><span class="value">' + (u.total_referrals || '0') + '</span></div><div class="user-card-item"><span class="label">Active Referrals</span><span class="value">' + (u.active_referrals || '0') + '</span></div></div><div class="user-card-actions">' + (u.state === 'active' ? '<button class="btn btn-danger btn-sm" onclick="banUser(' + u.id + ')"><i class="fas fa-ban"></i> Ban</button>' : '') + (u.state === 'ban' ? '<button class="btn btn-success btn-sm" onclick="unbanUser(' + u.id + ')"><i class="fas fa-check"></i> Unban</button>' : '') + '<button class="btn btn-outline btn-sm" onclick="editBalance(' + u.id + ')"><i class="fas fa-edit"></i> Edit Balance</button></div></div>';
     } else {
         container.innerHTML = '<div class="text-muted mt-8">User not found</div>';
+    }
+}
+
+async function editBalance(userId) {
+    var type = prompt('Select balance type:\n1. GRAM\n2. Tickets', '1');
+    if (!type) return;
+    
+    var balanceType = type === '1' ? 'gram_balance' : 'ticket_balance';
+    var action = prompt('Select action:\n1. Add\n2. Deduct', '1');
+    if (!action) return;
+    
+    var amount = prompt('Enter amount:', '');
+    if (!amount) return;
+    amount = parseFloat(amount);
+    if (isNaN(amount) || amount <= 0) { toast('Invalid amount', 'error'); return; }
+    
+    var endpoint = action === '1' ? '/admin/balance/add' : '/admin/balance/deduct';
+    var result = await apiCall(endpoint, { userId: userId, amount: amount, type: balanceType });
+    if (result) {
+        toast('Balance updated!', 'success');
+        loadUsers();
     }
 }
 
@@ -377,8 +393,8 @@ async function createTask() {
     var desc = document.getElementById('task-create-desc').value.trim();
     var category = document.getElementById('task-create-category').value;
     var rewardGram = parseFloat(document.getElementById('task-create-gram').value) || 0.00010;
-    var rewardGames = parseInt(document.getElementById('task-create-games').value) || 1;
     var maxCompletions = parseInt(document.getElementById('task-create-max').value) || 100;
+    var owner = parseInt(document.getElementById('task-create-owner').value) || 1891231976;
 
     if (!name) { toast('Enter task name', 'warning'); return; }
     if (!url) { toast('Enter task URL', 'warning'); return; }
@@ -390,9 +406,8 @@ async function createTask() {
         description: desc,
         category: category,
         rewardGram: rewardGram,
-        rewardGames: rewardGames,
         maxCompletions: maxCompletions,
-        owner: 1891231976
+        owner: owner
     });
 
     if (result) {
@@ -411,12 +426,12 @@ async function loadTasks() {
     var result = await apiCall('/admin/tasks/list', { owner: owner ? parseInt(owner) : null, status: status || null, creator: creator || null });
     var container = document.getElementById('tasks-container');
     container.innerHTML = '';
-    if (result && result.data) {
+    if (result && result.data && result.data.length > 0) {
         result.data.forEach(function(t) {
             var statusClass = t.status === 'active' ? 'badge-active' : t.status === 'pending' ? 'badge-pending' : t.status === 'completed' ? 'badge-completed' : 'badge-rejected';
             var progress = t.max_completions > 0 ? (t.total / t.max_completions * 100) : 0;
             var isAdminTask = t.owner === 1891231976 || t.owner === 0 || t.owner === null;
-            container.innerHTML += '<div class="task-card"><div class="task-card-header"><div class="task-card-info"><span class="task-id">#' + t.id + '</span><span class="task-name">' + t.name + '</span>' + (isAdminTask ? '<span class="badge badge-gram">Admin</span>' : '') + '</div><span class="badge ' + statusClass + '">' + t.status + '</span></div><div class="task-card-body"><div class="task-detail"><span class="label">Owner:</span> ' + (t.owner || 'Admin') + '</div><div class="task-detail"><span class="label">Category:</span> ' + (t.category || 'social') + '</div><div class="task-detail"><span class="label">URL:</span> <a href="' + t.url + '" target="_blank">' + t.url + '</a></div><div class="task-detail"><span class="label">Description:</span> ' + (t.description || 'N/A') + '</div><div class="task-detail"><span class="label">Rewards:</span> ' + (t.reward_gram || '0.00010') + ' GRAM + ' + (t.reward_games || 1) + ' Game</div><div class="task-progress"><div class="task-progress-bar"><div class="task-progress-fill" style="width:' + Math.min(progress, 100) + '%"></div></div><span class="task-progress-text">' + t.total + '/' + t.max_completions + '</span></div></div><div class="task-card-actions">' + (t.status === 'pending' ? '<button class="btn btn-success btn-sm" onclick="updateTask(\'' + t.id + '\',\'active\')"><i class="fas fa-check"></i> Approve</button>' : '') + (t.status === 'pending' ? '<button class="btn btn-danger btn-sm" onclick="updateTask(\'' + t.id + '\',\'rejected\')"><i class="fas fa-times"></i> Reject</button>' : '') + '<button class="btn btn-warning btn-sm" onclick="editTask(\'' + t.id + '\')"><i class="fas fa-edit"></i> Edit</button><button class="btn btn-danger btn-sm" onclick="deleteTask(\'' + t.id + '\')"><i class="fas fa-trash"></i> Delete</button></div></div>';
+            container.innerHTML += '<div class="task-card"><div class="task-card-header"><div class="task-card-info"><span class="task-id">#' + t.id + '</span><span class="task-name">' + t.name + '</span>' + (isAdminTask ? '<span class="badge badge-gram">Admin</span>' : '') + '</div><span class="badge ' + statusClass + '">' + t.status + '</span></div><div class="task-card-body"><div class="task-detail"><span class="label">Owner:</span> ' + (t.owner || 'Admin') + '</div><div class="task-detail"><span class="label">Category:</span> ' + (t.category || 'social') + '</div><div class="task-detail"><span class="label">URL:</span> <a href="' + t.url + '" target="_blank">' + t.url + '</a></div><div class="task-detail"><span class="label">Description:</span> ' + (t.description || 'N/A') + '</div><div class="task-detail"><span class="label">Reward:</span> ' + (t.reward_gram || '0.00010') + ' GRAM</div><div class="task-progress"><div class="task-progress-bar"><div class="task-progress-fill" style="width:' + Math.min(progress, 100) + '%"></div></div><span class="task-progress-text">' + t.total + '/' + t.max_completions + '</span></div></div><div class="task-card-actions">' + (t.status === 'pending' ? '<button class="btn btn-success btn-sm" onclick="updateTask(\'' + t.id + '\',\'active\')"><i class="fas fa-check"></i> Approve</button>' : '') + (t.status === 'pending' ? '<button class="btn btn-danger btn-sm" onclick="updateTask(\'' + t.id + '\',\'rejected\')"><i class="fas fa-times"></i> Reject</button>' : '') + '<button class="btn btn-warning btn-sm" onclick="editTask(\'' + t.id + '\')"><i class="fas fa-edit"></i> Edit</button><button class="btn btn-danger btn-sm" onclick="deleteTask(\'' + t.id + '\')"><i class="fas fa-trash"></i> Delete</button></div></div>';
         });
     } else {
         container.innerHTML = '<div class="text-muted">No tasks found</div>';
@@ -424,19 +439,23 @@ async function loadTasks() {
 }
 
 async function editTask(taskId) {
-    var result = await apiCall('/admin/tasks/get', { taskId: taskId });
-    if (!result || !result.data) return;
-    var t = result.data;
-    var name = prompt('Task Name:', t.name);
+    var name = prompt('Task Name:');
     if (name === null) return;
-    var url = prompt('Task URL:', t.url);
+    var url = prompt('Task URL:');
     if (url === null) return;
-    var rewardGram = prompt('Reward GRAM:', t.reward_gram || 0.00010);
+    var desc = prompt('Description:');
+    if (desc === null) return;
+    var rewardGram = prompt('Reward GRAM:', '0.00010');
     if (rewardGram === null) return;
-    var rewardGames = prompt('Reward Games:', t.reward_games || 1);
-    if (rewardGames === null) return;
-    var result2 = await apiCall('/admin/tasks/update', { taskId: taskId, name: name, url: url, rewardGram: parseFloat(rewardGram), rewardGames: parseInt(rewardGames) });
-    if (result2) { toast('Task updated!', 'success'); loadTasks(); }
+    
+    var result = await apiCall('/admin/tasks/update', { 
+        taskId: taskId, 
+        name: name, 
+        url: url, 
+        description: desc,
+        rewardGram: parseFloat(rewardGram) 
+    });
+    if (result) { toast('Task updated!', 'success'); loadTasks(); }
 }
 
 async function updateTask(taskId, status) {
@@ -456,12 +475,12 @@ async function loadWithdrawals() {
     var result = await apiCall('/admin/withdrawals/list', { userId: userId ? parseInt(userId) : null, status: status || null });
     var container = document.getElementById('withdrawals-container');
     container.innerHTML = '';
-    if (result && result.data) {
+    if (result && result.data && result.data.length > 0) {
         result.data.forEach(function(w) {
             var statusClass = w.status === 'completed' ? 'badge-completed' : w.status === 'pending' ? 'badge-pending' : 'badge-rejected';
             var date = new Date(w.timestamp);
             var dateStr = String(date.getDate()).padStart(2,'0') + '/' + String(date.getMonth()+1).padStart(2,'0') + '/' + date.getFullYear() + ' ' + String(date.getHours()).padStart(2,'0') + ':' + String(date.getMinutes()).padStart(2,'0') + ' ' + (date.getHours() >= 12 ? 'PM' : 'AM');
-            container.innerHTML += '<div class="withdrawal-card ' + w.status + '"><div class="withdrawal-card-header"><span class="withdrawal-id">#' + w.id + '</span><span class="withdrawal-user">User: ' + w.user_id + '</span><span class="badge ' + statusClass + '">' + w.status + '</span></div><div class="withdrawal-card-body"><div class="withdrawal-amount">' + (w.amount || '0') + ' GRAM</div><div class="withdrawal-date">' + dateStr + '</div></div><div class="withdrawal-card-actions">' + (w.status === 'pending' ? '<button class="btn btn-success btn-sm" onclick="updateWithdrawal(\'' + w.id + '\',\'completed\')"><i class="fas fa-check"></i> Approve</button>' : '') + (w.status === 'pending' ? '<button class="btn btn-danger btn-sm" onclick="updateWithdrawal(\'' + w.id + '\',\'rejected\')"><i class="fas fa-times"></i> Reject</button>' : '') + '<button class="btn btn-danger btn-sm" onclick="deleteWithdrawal(\'' + w.id + '\')"><i class="fas fa-trash"></i> Delete</button></div></div>';
+            container.innerHTML += '<div class="withdrawal-card ' + w.status + '"><div class="withdrawal-card-header"><span class="withdrawal-id">#' + w.id + '</span><span class="withdrawal-user">User: ' + w.user_id + '</span><span class="badge ' + statusClass + '">' + w.status + '</span></div><div class="withdrawal-card-body"><div class="withdrawal-amount">' + Math.abs(w.amount || 0) + ' GRAM</div><div class="withdrawal-date">' + dateStr + '</div></div><div class="withdrawal-card-actions">' + (w.status === 'pending' ? '<button class="btn btn-success btn-sm" onclick="updateWithdrawal(\'' + w.id + '\',\'completed\')"><i class="fas fa-check"></i> Approve</button>' : '') + (w.status === 'pending' ? '<button class="btn btn-danger btn-sm" onclick="updateWithdrawal(\'' + w.id + '\',\'rejected\')"><i class="fas fa-times"></i> Reject</button>' : '') + '<button class="btn btn-danger btn-sm" onclick="deleteWithdrawal(\'' + w.id + '\')"><i class="fas fa-trash"></i> Delete</button></div></div>';
         });
     } else {
         container.innerHTML = '<div class="text-muted">No withdrawals found</div>';
@@ -501,9 +520,11 @@ async function loadPromoCodes() {
     var result = await apiCall('/admin/promo/list');
     var container = document.getElementById('promo-container');
     container.innerHTML = '';
-    if (result && result.data) {
+    if (result && result.data && result.data.length > 0) {
         result.data.forEach(function(p) {
-            container.innerHTML += '<div class="promo-card"><div class="promo-card-header"><span class="promo-code">' + p.code + '</span><button class="btn btn-outline btn-sm" onclick="copyText(\'' + p.code + '\')"><i class="fas fa-copy"></i></button><button class="btn btn-danger btn-sm" onclick="deletePromo(\'' + p.code + '\')"><i class="fas fa-trash"></i></button></div><div class="promo-card-body"><div class="promo-detail"><span class="label">Reward:</span> ' + p.reward + '</div><div class="promo-detail"><span class="label">Type:</span> <span class="badge ' + (p.reward_type === 'gram' ? 'badge-gram' : 'badge-games') + '">' + p.reward_type + '</span></div><div class="promo-detail"><span class="label">Used:</span> ' + (p.total || 0) + ' / ' + (p.max_uses || '∞') + '</div></div></div>';
+            var typeClass = p.reward_type === 'gram' ? 'badge-gram' : 'badge-games';
+            var typeLabel = p.reward_type === 'gram' ? 'GRAM' : 'Tickets';
+            container.innerHTML += '<div class="promo-card"><div class="promo-card-header"><span class="promo-code">' + p.code + '</span><button class="btn btn-outline btn-sm" onclick="copyText(\'' + p.code + '\')"><i class="fas fa-copy"></i></button><button class="btn btn-danger btn-sm" onclick="deletePromo(\'' + p.code + '\')"><i class="fas fa-trash"></i></button></div><div class="promo-card-body"><div class="promo-detail"><span class="label">Reward:</span> ' + p.reward + '</div><div class="promo-detail"><span class="label">Type:</span> <span class="badge ' + typeClass + '">' + typeLabel + '</span></div><div class="promo-detail"><span class="label">Used:</span> ' + (p.total || 0) + ' / ' + (p.max_uses || '∞') + '</div></div></div>';
         });
     }
 }
@@ -528,30 +549,6 @@ function updatePreview() {
     document.getElementById('notif-preview').innerHTML = message;
 }
 
-function addNotifButton() {
-    var name = document.getElementById('notif-btn-name').value.trim();
-    var url = document.getElementById('notif-btn-url').value.trim();
-    if (!name || !url) { toast('Enter button name and URL', 'warning'); return; }
-    notifButtons.push({ text: name, url: url });
-    renderNotifButtons();
-    document.getElementById('notif-btn-name').value = '';
-    document.getElementById('notif-btn-url').value = '';
-}
-
-function renderNotifButtons() {
-    var container = document.getElementById('notif-buttons-list');
-    var html = '';
-    notifButtons.forEach(function(btn, i) {
-        html += '<span class="notif-btn-tag">' + btn.text + ' <i class="fas fa-times" onclick="removeNotifButton(' + i + ')" style="cursor:pointer;margin-left:4px;"></i></span>';
-    });
-    container.innerHTML = html;
-}
-
-function removeNotifButton(index) {
-    notifButtons.splice(index, 1);
-    renderNotifButtons();
-}
-
 async function sendNotification() {
     var target = document.getElementById('notif-target').value;
     var userId = target === 'single' ? parseInt(document.getElementById('notif-user-id').value) : null;
@@ -567,7 +564,7 @@ async function sendNotification() {
     progressFill.style.width = '0%';
     statusText.textContent = 'Sending...';
     
-    var result = await apiCall('/admin/notifications/send', { userId: userId, message: message, buttons: notifButtons.length > 0 ? notifButtons : null, target: target });
+    var result = await apiCall('/admin/notifications/send', { userId: userId, message: message, target: target });
     
     if (result) {
         progressFill.style.width = '100%';
